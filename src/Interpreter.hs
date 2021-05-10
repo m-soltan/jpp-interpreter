@@ -4,9 +4,11 @@ import Control.Monad      ( when )
 import System.Environment ( getArgs, getProgName )
 import System.Exit        ( exitFailure, exitSuccess )
 
+import Parsing.AbsLatte
 import Parsing.LexLatte   ( Token )
 import Parsing.ParLatte   ( pProgram, myLexer )
 import Parsing.PrintLatte ( Print, printTree )
+-- import Parsing.SkelLatte
 
 type ParseFun a = [Token] -> Either String a
 
@@ -14,22 +16,30 @@ main :: IO ()
 main = do
   args <- getArgs
   case args of
-    [] -> getContents >>= run 2 pProgram
+    [] -> getContents >>= run
+    fs -> mapM_ runFile fs
 
-run :: (Print a, Show a) => Int -> ParseFun a -> String -> IO ()
-run v p s = case p ts of
+run :: String -> IO ()
+run s = case pProgram ts of
     Left s -> do
-      putStrLn "\nParse              Failed...\n"
-      putStrV v "Tokens:"
-      putStrV v $ show ts
-      putStrLn s
+      putStrLn "\nParse Failed...\n"
+
       exitFailure
     Right tree -> do
       putStrLn "\nParse Successful!"
-
+      case transProgram tree of
+        s -> do
+          putStrLn s
+      -- transProgram2 tree
       exitSuccess
   where
   ts = myLexer s
 
-putStrV :: Int -> String -> IO ()
-putStrV v s = when (v > 1) $ putStrLn s
+runFile :: FilePath -> IO ()
+runFile f = putStrLn f >> readFile f >>= run
+
+transProgram :: Parsing.AbsLatte.Program () -> String
+transProgram (Program () l) = show l
+
+transTopDef :: Show a => Parsing.AbsLatte.TopDef a -> String
+transTopDef (FnDef _ type_ ident args block) = show type_
