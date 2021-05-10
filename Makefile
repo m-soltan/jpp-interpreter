@@ -14,12 +14,16 @@ all : build/TestLatte
 %.hs : %.x
 	alex --ghc $<
 
+build/Interpreter : src/Interpreter.hs src/Parsing/ErrM.hs \
+		src/Parsing/LexLatte.hs src/Parsing/ParLatte.hs \
+		src/Parsing/PrintLatte.hs
+	ghc -dynamic --make $< -o $@ $(MODULES)
+
 build/TestLatte : src/Parsing/TestLatte.hs src/Parsing/ErrM.hs \
 		src/Parsing/LexLatte.hs src/Parsing/ParLatte.hs \
  		src/Parsing/PrintLatte.hs
 	ghc -dynamic --make $< -o $@ $(MODULES)
 
 clean :
-	-rm build/*
-	-cd src/Parsing
-	-rm -f *.hi *.o *.log *.aux *.dvi
+	-rm -f build/*
+	-cd src/Parsing && rm -f *.hi *.o *.log *.aux *.dvi
