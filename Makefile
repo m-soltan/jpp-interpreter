@@ -4,9 +4,9 @@ MODULES = -iAbsLatte src/Parsing/AbsLatte.hs \
 		-iPrintLatte src/Parsing/PrintLatte.hs \
 		-iSkelLatte src/Parsing/SkelLatte.hs
 
-.PHONY : all clean distclean
+.PHONY : all clean
 
-all : build/TestLatte
+all : build/TestLatte build/Interpreter
 
 %.hs : %.y
 	happy --ghc --coerce --array --info $<
