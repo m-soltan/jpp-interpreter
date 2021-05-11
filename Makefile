@@ -7,7 +7,8 @@ MODULES = -iAbsLatte src/Parsing/AbsLatte.hs \
 		-iMemory src/Memory.hs \
 		-iProgram src/Program.hs \
 		-iTopDef src/TopDef.hs \
-		-iTopScope src/TopScope.hs
+		-iTopScope src/TopScope.hs \
+		-iUtil src/Util.hs
 
 .PHONY : all clean
 
@@ -19,9 +20,7 @@ all : build/TestLatte interpreter
 %.hs : %.x
 	alex --ghc $<
 
-interpreter : src/Interpreter.hs src/Parsing/ErrM.hs \
-		src/Parsing/LexLatte.hs src/Parsing/ParLatte.hs \
-		src/Parsing/PrintLatte.hs
+interpreter : src/*
 	ghc -dynamic --make $< -o $@ $(MODULES)
 
 build/TestLatte : src/Parsing/TestLatte.hs src/Parsing/ErrM.hs \

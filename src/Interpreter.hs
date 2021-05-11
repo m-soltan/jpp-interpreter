@@ -27,7 +27,8 @@ run :: String -> IO ()
 run s = case pProgram ts of
     Right tree -> do
       debugPrint "\nParse Successful!"
-      case Program.trans tree of
+      programResult <- Program.trans tree
+      case programResult of
         Right s -> do
           debugPrint s
           exitSuccess
