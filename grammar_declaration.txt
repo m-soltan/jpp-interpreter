@@ -1,0 +1,223 @@
+I'm implementing Latte as linked in the problem statement pdf, without any of the extensions and with the following changes:
+    - availability of pass-by-variable as well as pass-by-value
+    - identificator shadowing with static binding
+    - handling of runtime errors such as division by zero
+. The grammar is copy-pasted with a single change to add pass-by-value and pass-by-variable (point 7) from https://www.mimuw.edu.pl/~ben/Zajecia/Mrj2020/Latte/Latte.cf
+
+The language looks like simplified, imperative-only Java.
+
+Features:
+    Na 15 punktów
+  + 01 (trzy typy)
+  + 02 (literały, arytmetyka, porównania)
+  + 03 (zmienne, przypisanie)
+  + 04 (print)
+  + 05 (while, if)
+  + 06 (funkcje lub procedury, rekurencja)
+  + 07 (przez zmienną / przez wartość / in/out)
+    08 (zmienne read-only i pętla for)
+    Na 20 punktów
+  + 09 (przesłanianie i statyczne wiązanie)
+  + 10 (obsługa błędów wykonania)
+  + 11 (funkcje zwracające wartość)
+    Na 30 punktów
+    12 (4) (statyczne typowanie)
+    13 (2) (funkcje zagnieżdżone ze statycznym wiązaniem)
+    14 (1) (rekordy/tablice/listy)
+    15 (2) (krotki z przypisaniem)
+    16 (1) (break, continue)
+    17 (4) (funkcje wyższego rzędu, anonimowe, domknięcia)
+    18 (3) (generatory)
+
+  Razem:  20
+
+Examples (also from the link):
+
+=======================================
+
+// Hello world
+
+int main () {
+  printString("hello world") ;
+  return 0 ;
+}
+
+=======================================
+
+// print even integers from [0, 10)
+
+int main () {
+  int i ;
+  i = 0 ;
+  while (i < 10){
+    if (i % 2 == 0) printInt(i) ;
+    i++ ;
+  }
+  printInt(i) ;
+  return 0 ;
+}
+
+=======================================
+
+// two factorial implementations
+
+int main () {
+  printInt(fact(7)) ;
+  printInt(factr(7)) ;
+  return 0 ;
+}
+
+// iterative
+int fact (int n) {
+  int i,r ;
+  i = 1 ;
+  r = 1 ;
+  while (i < n+1) {
+    r = r * i ;
+    i++ ;
+  }
+  return r ;
+}
+
+// recursive
+int factr (int n) {
+  if (n < 2)
+    return 1 ;
+  else
+    return (n * factr(n-1)) ;
+}
+
+=======================================
+
+Grammar:
+
+-- programs ------------------------------------------------
+
+entrypoints Program ;
+
+Program.   Program ::= [TopDef] ;
+
+FnDef.     TopDef ::= Type Ident "(" [Arg] ")" Block ;
+
+separator nonempty TopDef "" ;
+
+VArg.      Arg ::= Type Ident;
+
+RArg.      Arg ::= Type "ref" Ident;
+
+separator  Arg "," ;
+
+-- statements ----------------------------------------------
+
+Block.     Block ::= "{" [Stmt] "}" ;
+
+separator  Stmt "" ;
+
+Empty.     Stmt ::= ";" ;
+
+BStmt.     Stmt ::= Block ;
+
+Decl.      Stmt ::= Type [Item] ";" ;
+
+NoInit.    Item ::= Ident ; 
+
+Init.      Item ::= Ident "=" Expr ;
+
+separator nonempty Item "," ;
+
+Ass.       Stmt ::= Ident "=" Expr  ";" ;
+
+Incr.      Stmt ::= Ident "++"  ";" ;
+
+Decr.      Stmt ::= Ident "--"  ";" ;
+
+Ret.       Stmt ::= "return" Expr ";" ;
+
+VRet.      Stmt ::= "return" ";" ;
+
+Cond.      Stmt ::= "if" "(" Expr ")" Stmt  ;
+
+CondElse.  Stmt ::= "if" "(" Expr ")" Stmt "else" Stmt  ;
+
+While.     Stmt ::= "while" "(" Expr ")" Stmt ;
+
+SExp.      Stmt ::= Expr  ";" ;
+
+-- Types ---------------------------------------------------
+
+Int.       Type ::= "int" ;
+
+Str.       Type ::= "string" ;
+
+Bool.      Type ::= "boolean" ;
+
+Void.      Type ::= "void" ;
+
+internal   Fun. Type ::= Type "(" [Type] ")" ;
+
+separator  Type "," ;
+
+-- Expressions ---------------------------------------------
+
+EVar.      Expr6 ::= Ident ;
+
+ELitInt.   Expr6 ::= Integer ;
+
+ELitTrue.  Expr6 ::= "true" ;
+
+ELitFalse. Expr6 ::= "false" ;
+
+EApp.      Expr6 ::= Ident "(" [Expr] ")" ;
+
+EString.   Expr6 ::= String ;
+
+Neg.       Expr5 ::= "-" Expr6 ;
+
+Not.       Expr5 ::= "!" Expr6 ;
+
+EMul.      Expr4 ::= Expr4 MulOp Expr5 ;
+
+EAdd.      Expr3 ::= Expr3 AddOp Expr4 ;
+
+ERel.      Expr2 ::= Expr2 RelOp Expr3 ;
+
+EAnd.      Expr1 ::= Expr2 "&&" Expr1 ;
+
+EOr.       Expr ::= Expr1 "||" Expr ;
+
+coercions  Expr 6 ;
+
+separator  Expr "," ;
+
+-- operators -----------------------------------------------
+
+Plus.      AddOp ::= "+" ;
+
+Minus.     AddOp ::= "-" ;
+
+Times.     MulOp ::= "*" ;
+
+Div.       MulOp ::= "/" ;
+
+Mod.       MulOp ::= "%" ;
+
+LTH.       RelOp ::= "<" ;
+
+LE.        RelOp ::= "<=" ;
+
+GTH.       RelOp ::= ">" ;
+
+GE.        RelOp ::= ">=" ;
+
+EQU.       RelOp ::= "==" ;
+
+NE.        RelOp ::= "!=" ;
+
+-- comments ------------------------------------------------
+
+comment    "#" ;
+
+comment    "//" ;
+
+comment    "/*" "*/" ;
+
