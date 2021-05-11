@@ -8,7 +8,8 @@ import Parsing.AbsLatte
 import Parsing.LexLatte   ( Token )
 import Parsing.ParLatte   ( pProgram, myLexer )
 import Parsing.PrintLatte ( Print, printTree )
--- import Parsing.SkelLatte
+import Parsing.SkelLatte (Err, Result)
+import qualified Program
 
 type ParseFun a = [Token] -> Either String a
 
@@ -19,27 +20,28 @@ main = do
     [] -> getContents >>= run
     fs -> mapM_ runFile fs
 
-run :: String -> IO ()
-run s = case pProgram ts of
-    Left s -> do
-      putStrLn "\nParse Failed...\n"
-
-      exitFailure
-    Right tree -> do
-      putStrLn "\nParse Successful!"
-      case transProgram tree of
-        s -> do
-          putStrLn s
-      -- transProgram2 tree
-      exitSuccess
-  where
-  ts = myLexer s
-
 runFile :: FilePath -> IO ()
 runFile f = putStrLn f >> readFile f >>= run
 
-transProgram :: Parsing.AbsLatte.Program () -> String
-transProgram (Program () l) = show l
+run :: String -> IO ()
+run s = case pProgram ts of
+    Right tree -> do
+      debugPrint "\nParse Successful!"
+      case Program.trans tree of
+        Right s -> do
+          debugPrint s
+          exitSuccess
+        Left err -> do
+          debugPrint ("\nRuntime error\n" ++ err)
+          exitFailure
+    Left s -> do
+      debugPrint "\nParse Failed...\n"
+
+      exitFailure
+  where
+  ts = myLexer s
 
 transTopDef :: Show a => Parsing.AbsLatte.TopDef a -> String
 transTopDef (FnDef _ type_ ident args block) = show type_
+
+debugPrint = putStrLn

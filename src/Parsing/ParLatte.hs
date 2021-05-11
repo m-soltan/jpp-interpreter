@@ -961,6 +961,7 @@ happyReturn1 :: () => a -> b -> Either String a
 happyReturn1 = \a tks -> (return) a
 happyError' :: () => ([(Token)], [Prelude.String]) -> Either String a
 happyError' = (\(tokens, _) -> happyError tokens)
+pProgram :: [Token] -> Either String (Parsing.AbsLatte.Program())
 pProgram tks = happySomeParser where
  happySomeParser = happyThen (happyParse 0# tks) (\x -> happyReturn (let {(HappyWrap7 x') = happyOut7 x} in x'))
 
