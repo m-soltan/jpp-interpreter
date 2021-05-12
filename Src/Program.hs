@@ -16,6 +16,7 @@ trans (Program () l) = do
   let retCode = except after
   return retCode
 
-callMain :: MemoryState -> IO MemoryState
-callMain m = case m |> funcs |> Data.Map.lookup "main" of
-  Just f -> callFunc f m
+callMain :: MemoryState a -> IO (MemoryState a)
+callMain m = do
+  let f = getFunction "main" m
+  callFunc f m

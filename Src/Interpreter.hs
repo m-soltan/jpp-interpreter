@@ -20,9 +20,6 @@ main = do
     [] -> getContents >>= run
     fs -> mapM_ runFile fs
 
-runFile :: FilePath -> IO ()
-runFile f = putStrLn f >> readFile f >>= run
-
 run :: String -> IO ()
 run s = case pProgram ts of
     Right tree -> do
@@ -41,3 +38,6 @@ run s = case pProgram ts of
       exitFailure
   where
   ts = myLexer s
+
+runFile :: FilePath -> IO ()
+runFile f = readFile f >>= run
