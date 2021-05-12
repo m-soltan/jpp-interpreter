@@ -1,14 +1,13 @@
-module Program where
+module Src.Program where
 
 import Data.Map
 
-import Memory
+import Src.Memory
 import Parsing.AbsLatte
 import Parsing.LexLatte   ( Token )
 import Parsing.SkelLatte ( Err, Result )
-import TopDef
-import Util ( (|>) )
-import qualified TopScope
+import Src.TopDef
+import Src.Util ( (|>) )
 
 trans :: Parsing.AbsLatte.Program () -> IO Result
 trans (Program () l) = do

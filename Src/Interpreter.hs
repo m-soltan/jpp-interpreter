@@ -9,7 +9,8 @@ import Parsing.LexLatte   ( Token )
 import Parsing.ParLatte   ( pProgram, myLexer )
 import Parsing.PrintLatte ( Print, printTree )
 import Parsing.SkelLatte (Err, Result)
-import qualified Program
+import Src.Util
+import qualified Src.Program
 
 type ParseFun a = [Token] -> Either String a
 
@@ -26,17 +27,17 @@ runFile f = putStrLn f >> readFile f >>= run
 run :: String -> IO ()
 run s = case pProgram ts of
     Right tree -> do
-      debugPrint "\nParse Successful!"
-      programResult <- Program.trans tree
+      dbgPrint "\nParse Successful!"
+      programResult <- Src.Program.trans tree
       case programResult of
         Right s -> do
-          debugPrint s
+          dbgPrint s
           exitSuccess
         Left err -> do
-          debugPrint ("\nRuntime error\n" ++ err)
+          dbgPrint ("\nRuntime error\n" ++ err)
           exitFailure
     Left s -> do
-      debugPrint "\nParse Failed...\n"
+      dbgPrint "\nParse Failed...\n"
 
       exitFailure
   where
@@ -44,5 +45,3 @@ run s = case pProgram ts of
 
 transTopDef :: Show a => Parsing.AbsLatte.TopDef a -> String
 transTopDef (FnDef _ type_ ident args block) = show type_
-
-debugPrint = putStrLn

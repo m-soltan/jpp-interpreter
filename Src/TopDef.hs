@@ -1,8 +1,9 @@
-module TopDef where
+module Src.TopDef where
 
-import Memory
+import Src.Memory
 import Parsing.AbsLatte
 import Parsing.SkelLatte (Err, Result)
+import Src.Block
 
 trans :: Parsing.AbsLatte.TopDef () -> MemoryState -> IO Result
 trans (FnDef _ type_ ident args block) m = do
@@ -10,9 +11,7 @@ trans (FnDef _ type_ ident args block) m = do
 
 callFunc :: Parsing.AbsLatte.TopDef () -> MemoryState -> IO (MemoryState)
 callFunc f m = case f of
-  FnDef _ type_ (Ident "printString") args block -> do
-    putStrLn "test"
-    return m
-  FnDef _ type_ ident args block -> do
-    putStrLn "test"
+  FnDef _ type_ (Ident k) args block -> do
+    -- putStrLn (show l)
+    putStrLn k
     return m

@@ -1,10 +1,10 @@
-module Memory where
+module Src.Memory where
 
 import Data.Map
 
 import Parsing.AbsLatte
 import Parsing.SkelLatte ( Err, Result )
-import Util ( (|>) )
+import Src.Util ( (|>) )
 
 addFunction :: (TopDef ()) -> MemoryState -> MemoryState
 addFunction fun m = case fun of

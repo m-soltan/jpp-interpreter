@@ -1,10 +1,10 @@
-module TopScope where
+module Src.TopScope where
 
 import Data.Map
 
 import Parsing.AbsLatte
 import TopDef
-import Util ( (|>) )
+import Src.Util ( (|>) )
 
 builtins = empty
 
