@@ -31,7 +31,7 @@ run s = case pProgram ts of
           dbgPrint s
           exitSuccess
         Left err -> do
-          dbgPrint ("\nRuntime error\n" ++ err)
+          dbgPrint ("\nRuntime error: \"" ++ err ++ "\"")
           exitFailure
     Left s -> do
       dbgPrint "\nParse Failed...\n"
