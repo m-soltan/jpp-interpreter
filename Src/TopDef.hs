@@ -40,6 +40,7 @@ transStmt (Incr _ _) m = do
   return m1
 transStmt (Decr _ _) m = do
   let m1 = addError "decrement statement not implemented" m
+  return m1
 transStmt (Ret _ e) m = do
   m <- transExpr e m
   return m
