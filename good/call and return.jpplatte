@@ -1,0 +1,18 @@
+int main () {
+  return a();
+}
+
+int a () {
+  printString("a called");
+  return b();
+}
+
+int b () {
+  printString("b called");
+  return c();
+}
+
+int c () {
+  printString("c called");
+  return 0;
+}
