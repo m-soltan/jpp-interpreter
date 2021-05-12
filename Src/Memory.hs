@@ -6,6 +6,14 @@ import Src.Parsing.AbsLatte
 import Src.Parsing.SkelLatte ( Err, Result )
 import Src.Util ( (|>) )
 
+addError :: String -> MemoryState a -> MemoryState a
+addError err m = MemoryState {
+  funcs = funcs m,
+  vIdent = vIdent m,
+  vStore = vStore m,
+  except = Left err
+}
+
 addFunction :: (TopDef a) -> MemoryState a -> MemoryState a
 addFunction fun m = case fun of
   (FnDef _ _ (Ident str) _ _) -> MemoryState {
@@ -17,6 +25,7 @@ addFunction fun m = case fun of
 
 builtins :: Map String (Maybe (TopDef a))
 builtins = empty
+ |> insert "fail" Nothing
  |> insert "printString" Nothing
 
 emptyState :: MemoryState a
