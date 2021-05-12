@@ -4,11 +4,10 @@ import Control.Monad      ( when )
 import System.Environment ( getArgs, getProgName )
 import System.Exit        ( exitFailure, exitSuccess )
 
-import Parsing.AbsLatte
-import Parsing.LexLatte   ( Token )
-import Parsing.ParLatte   ( pProgram, myLexer )
-import Parsing.PrintLatte ( Print, printTree )
-import Parsing.SkelLatte (Err, Result)
+import Src.Parsing.AbsLatte
+import Src.Parsing.LexLatte   ( Token )
+import Src.Parsing.ParLatte   ( pProgram, myLexer )
+import Src.Parsing.SkelLatte (Err, Result)
 import Src.Util
 import qualified Src.Program
 
@@ -42,6 +41,3 @@ run s = case pProgram ts of
       exitFailure
   where
   ts = myLexer s
-
-transTopDef :: Show a => Parsing.AbsLatte.TopDef a -> String
-transTopDef (FnDef _ type_ ident args block) = show type_

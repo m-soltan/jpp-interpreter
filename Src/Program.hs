@@ -3,13 +3,13 @@ module Src.Program where
 import Data.Map
 
 import Src.Memory
-import Parsing.AbsLatte
-import Parsing.LexLatte   ( Token )
-import Parsing.SkelLatte ( Err, Result )
+import Src.Parsing.AbsLatte
+import Src.Parsing.LexLatte   ( Token )
+import Src.Parsing.SkelLatte ( Err, Result )
 import Src.TopDef
 import Src.Util ( (|>) )
 
-trans :: Parsing.AbsLatte.Program () -> IO Result
+trans :: Src.Parsing.AbsLatte.Program () -> IO Result
 trans (Program () l) = do
   let defs = fromDefs l
   after <- callMain defs

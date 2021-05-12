@@ -2,8 +2,8 @@ module Src.Memory where
 
 import Data.Map
 
-import Parsing.AbsLatte
-import Parsing.SkelLatte ( Err, Result )
+import Src.Parsing.AbsLatte
+import Src.Parsing.SkelLatte ( Err, Result )
 import Src.Util ( (|>) )
 
 addFunction :: (TopDef ()) -> MemoryState -> MemoryState
@@ -34,6 +34,6 @@ getFunction m cell = case m |> funcs |> Data.Map.lookup cell of
 data MemoryState = MemoryState {
   funcs :: Map String (TopDef ()),
   vIdent :: Map String Int,
-  vStore :: Map Int (Parsing.AbsLatte.Type ()),
+  vStore :: Map Int (Src.Parsing.AbsLatte.Type ()),
   except :: Result
 }

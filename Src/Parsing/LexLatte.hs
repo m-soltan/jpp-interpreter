@@ -4,7 +4,7 @@
 
 {-# OPTIONS -fno-warn-incomplete-patterns #-}
 {-# OPTIONS_GHC -w #-}
-module Parsing.LexLatte where
+module Src.Parsing.LexLatte where
 
 import qualified Data.Bits
 import Data.Word (Word8)

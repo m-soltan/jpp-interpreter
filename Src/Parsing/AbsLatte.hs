@@ -3,7 +3,7 @@
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Parsing.AbsLatte where
+module Src.Parsing.AbsLatte where
 
 import Prelude (Char, Double, Integer, String, map, fmap)
 import qualified Prelude as C (Eq, Ord, Show, Read, Functor)
