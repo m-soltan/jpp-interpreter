@@ -4,3 +4,10 @@ int main () {
   b(x);
   return x;
 }
+
+int b(int y) {
+  int x = 5;
+  
+  x = 4;
+  
+}

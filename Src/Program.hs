@@ -18,5 +18,9 @@ trans (Program () l) = do
 
 callMain :: MemoryState a -> IO (MemoryState a)
 callMain m = do
-  let f = getFunction "main" m
-  callFunc f m
+  let r = getFunction "main" m
+  case r of
+    Just f -> callFunc f m
+    Nothing -> do
+      let m1 = addError "missing declaration of main()" m
+      return m1

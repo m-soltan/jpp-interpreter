@@ -40,10 +40,10 @@ fromDefs :: [TopDef a] -> MemoryState a
 fromDefs [] = emptyState
 fromDefs (h : t) = fromDefs t |> addFunction h
 
-getFunction :: String -> MemoryState a -> TopDef a
+getFunction :: String -> MemoryState a -> Maybe (TopDef a)
 getFunction ident m = case m |> funcs |> Data.Map.lookup ident of
-    Just v -> case v of
-      Just v1 -> v1
+    Just (Just v) -> Just v
+    Nothing -> Nothing
 
 vDeclare :: String -> MemoryValue -> MemoryState a -> IO (MemoryState a)
 vDeclare ident v m = do
@@ -54,6 +54,12 @@ vDeclare ident v m = do
     vStore = m |> vStore,
     except = except m
   }
+
+vRead :: String -> MemoryState a -> Maybe MemoryValue
+vRead ident m = case m |> vIdent |> Data.Map.lookup ident of
+  Just cell -> m |> vStore |> Data.Map.lookup cell
+  Nothing -> Nothing
+
 
 data MemoryState a = MemoryState {
   funcs :: Map String (Maybe (TopDef a)),

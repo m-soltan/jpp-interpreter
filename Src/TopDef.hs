@@ -47,9 +47,17 @@ transStmt (Ret _ e) m = do
 transStmt (VRet _) m = do
   let m1 = addError "variable return statement not implemented" m
   return m1
-transStmt (Cond _ _ _) m = do
-  let m1 = addError "conditional statement not implemented" m
-  return m1
+transStmt (Cond _ e s) m = do
+  m <- transExpr e m
+  case vRead "0" m of
+    Just (ValBool True) -> do
+      m <- transStmt s m
+      return m
+    Just (ValBool False) -> do
+      return m
+    Just _ -> do
+      let m1 = addError "non-boolean condition in if statement" m
+      return m1
 transStmt (CondElse _ _ _ _) m = do
   let m1 = addError "if-else statement not implemented" m
   return m1
@@ -74,8 +82,12 @@ transExpr (EApp _ (Ident ident) l) m = case ident of
         putStrLn str
         return m
   _ -> do
-    let f = getFunction ident m
-    callFunc f m
+    let r = getFunction ident m
+    case r of
+      Just f -> callFunc f m
+      Nothing -> do
+        let m1 = addError "call to undefined function" m
+        return m1
 transExpr (ELitInt _ i) m = do
   m <- vDeclare "0" (ValInt i) m
   return m
