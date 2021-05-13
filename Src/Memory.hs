@@ -29,13 +29,12 @@ addFunction fun m = case fun of
 
 addRetVal :: MemoryState a -> MemoryState a
 addRetVal m = case (except m, retVal m) of
-  (Right "ok", Nothing) -> case vRead "0" m of
-    Just x -> MemoryState {
+  (Right "ok", _) -> MemoryState {
       funcs = funcs m,
       vIdent = vIdent m,
       vStore = vStore m,
       except = except m,
-      retVal = Just x
+      retVal = m |> vUnhold |> Just
     }
 
 builtins :: Map String (Maybe (TopDef a))
@@ -93,7 +92,7 @@ vRead ident m = case m |> vIdent |> Data.Map.lookup ident of
 
 -- get the held value
 vUnhold :: MemoryState a -> MemoryValue
-vUnhold = case vRead "0" of
+vUnhold m = case vRead "0" m of
   Just v -> v
 
 data MemoryState a = MemoryState {
