@@ -71,6 +71,10 @@ getFunction ident m = case m |> funcs |> Data.Map.lookup ident of
     Just (Just v) -> Just v
     Nothing -> Nothing
 
+-- store the immediate result or return value
+vHold :: MemoryValue -> MemoryState a -> IO (MemoryState a)
+vHold = vDeclare "0"
+
 vDeclare :: String -> MemoryValue -> MemoryState a -> IO (MemoryState a)
 vDeclare ident v m = do
   let sz = m |> vIdent |> size
@@ -87,6 +91,10 @@ vRead ident m = case m |> vIdent |> Data.Map.lookup ident of
   Just cell -> m |> vStore |> Data.Map.lookup cell
   Nothing -> Nothing
 
+-- get the held value
+vUnhold :: MemoryState a -> MemoryValue
+vUnhold = case vRead "0" of
+  Just v -> v
 
 data MemoryState a = MemoryState {
   funcs :: Map String (Maybe (TopDef a)),
