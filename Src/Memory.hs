@@ -51,7 +51,7 @@ vDeclare ident v m = do
   return MemoryState {
     funcs = funcs m,
     vIdent = m |> vIdent |> insert ident sz,
-    vStore = m |> vStore,
+    vStore = m |> vStore |> insert sz v,
     except = except m
   }
 
