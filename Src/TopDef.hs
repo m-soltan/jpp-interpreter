@@ -19,7 +19,7 @@ callFunc f m = case f of
           m <- vHold v m
           return m
         Nothing -> do
-          let m1 = addError "function call returned nothing" m
+          let m1 = addError "function ended with no return statement" m
           return m1
       Left err -> do
         return (addError err m)
@@ -35,18 +35,41 @@ transBlock (Block a l) m = do
           transBlock (Block a t) m
         _ -> return m
 
+transItems :: [Src.Parsing.AbsLatte.Item a] -> MemoryState a -> IO (MemoryState a)
+transItems [] m = do
+  return m
+transItems (h : t) m = case h of
+  NoInit _ ident -> case ident of
+    Ident str -> vDeclare str ValVoid m
+  Init _ ident e -> do
+    m <- transExpr e m
+    case except m of
+      Right "ok" -> do
+        case ident of
+          Ident str -> do
+            let v = vUnhold m
+            m <- vDeclare str v m
+            return m
+      _ -> return m
+
 transStmt :: Stmt a -> MemoryState a -> IO (MemoryState a)
 transStmt (Empty _) m = do
   return m
 transStmt (BStmt _ b) m = do
   let m1 = addError "block statement not implemented" m
   return m1
-transStmt (Decl _ _ _) m = do
-  let m1 = addError "declaration statement not implemented" m
-  return m1
-transStmt (Ass _ _ _) m = do
-  let m1 = addError "assignment statement not implemented" m
-  return m1
+transStmt (Decl _ t l) m = do
+  m <- transItems l m
+  return m
+transStmt (Ass _ ident e) m = do
+  m <- transExpr e m
+  case except m of
+    Right "ok" -> do
+      case ident of
+        Ident str -> do
+          let v = vUnhold m
+          m <- vDeclare str v m
+          return m
 transStmt (Incr _ _) m = do
   let m1 = addError "increment statement not implemented" m
   return m1
@@ -61,7 +84,8 @@ transStmt (Ret _ e) m = do
       return m1
     Left _ -> return m
 transStmt (VRet _) m = do
-  let m1 = addError "variable return statement not implemented" m
+  m <- vHold ValVoid m
+  let m1 = addRetVal m
   return m1
 transStmt (Cond _ e s) m = do
   m <- transExpr e m

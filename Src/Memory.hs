@@ -104,4 +104,4 @@ data MemoryState a = MemoryState {
   retVal :: Maybe MemoryValue
 }
 
-data MemoryValue = ValStr String | ValInt Integer | ValBool Bool
+data MemoryValue = ValStr String | ValInt Integer | ValBool Bool | ValVoid
