@@ -63,8 +63,6 @@ transStmt (VRet _) m = do
 transStmt (Cond _ e s) m = do
   m <- transExpr e m
   case except m of
-    Left err -> do
-      return m
     Right "ok" -> case vRead "0" m of
       Just (ValBool True) -> do
         m <- transStmt s m
@@ -74,6 +72,8 @@ transStmt (Cond _ e s) m = do
       Just _ -> do
         let m1 = addError "non-boolean condition in if statement" m
         return m1
+    Left err -> do
+      return m
 transStmt (CondElse _ _ _ _) m = do
   let m1 = addError "if-else statement not implemented" m
   return m1
@@ -116,15 +116,35 @@ transExpr (EApp _ (Ident ident) l) m = case ident of
       Nothing -> do
         let m1 = addError "call to undefined function" m
         return m1
-transExpr (EString _ _) m = do
-  let m1 = addError "String literals not implemented" m
-  return m1
-transExpr (Neg _ _) m = do
-  let m1 = addError "arithmetic negation in expressions not implemented" m
-  return m1
-transExpr (Not _ _) m = do
-  let m1 = addError "logical negation in expressions not implemented" m
-  return m1
+transExpr (EString _ str) m = do
+  m <- vDeclare "0" (ValStr str) m
+  return m
+transExpr (Neg _ e) m = do
+  m <- transExpr e m
+  case except m of
+    Right "ok" -> case vRead "0" m of
+      Just v -> case v of
+        ValInt i -> do
+          let newValue = ValInt (-i)
+          m <- vDeclare "0" newValue m
+          return m
+        _ -> do
+          let m1 = addError "invalid type passed to arithmetic negation" m
+          return m1
+    Left err -> return m
+transExpr (Not _ e) m = do
+  m <- transExpr e m
+  case except m of
+    Right "ok" -> case vRead "0" m of
+      Just v -> case v of
+        ValBool b -> do
+          let newValue = ValBool (not b)
+          m <- vDeclare "0" newValue m
+          return m
+        _ -> do
+          let m1 = addError "invalid type passed to logical negation" m
+          return m1
+    Left err -> return m
 transExpr (EMul _ _ _ _) m = do
   let m1 = addError "multiplication in expressions not implemented" m
   return m1
