@@ -211,9 +211,41 @@ transExpr (ERel _ l _ r) m = do
               return m1
         Left _ -> return m
     Left _ -> return m
-transExpr (EAnd _ _ _) m = do
-  let m1 = addError "logical \"and\" in expressions not implemented" m
-  return m1
-transExpr (EOr _ _ _) m = do
-  let m1 = addError "logical \"or\" in expressions not implemented" m
-  return m1
+transExpr (EAnd _ l r) m = do
+  m <- transExpr l m
+  case except m of
+    Right "ok" -> do
+      let left = vUnhold m
+      m <- transExpr r m
+      case except m of
+        Right "ok" -> do
+          let right = vUnhold m
+          case (left, right) of
+            (ValBool lb, ValBool rb) -> do
+              let newValue = ValBool (lb && rb)
+              m <- vHold newValue m
+              return m
+            _ -> do
+              let m1 = addError "invalid type passed to &&" m
+              return m1
+        Left _ -> return m
+    Left _ -> return m
+transExpr (EOr _ l r) m = do
+  m <- transExpr l m
+  case except m of
+    Right "ok" -> do
+      let left = vUnhold m
+      m <- transExpr r m
+      case except m of
+        Right "ok" -> do
+          let right = vUnhold m
+          case (left, right) of
+            (ValBool lb, ValBool rb) -> do
+              let newValue = ValBool (lb || rb)
+              m <- vHold newValue m
+              return m
+            _ -> do
+              let m1 = addError "invalid type passed to ||" m
+              return m1
+        Left _ -> return m
+    Left _ -> return m
