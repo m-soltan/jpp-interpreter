@@ -1,0 +1,7 @@
+int main() {
+  if (false)
+    fail("1");
+  if (true)
+    return 0;
+  fail("2");
+}
