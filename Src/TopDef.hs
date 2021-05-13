@@ -16,7 +16,7 @@ callFunc f m = case f of
     case except callResult of
       Right "ok" -> case vRead "0" callResult of
         Just v -> do
-          m <- vDeclare "0" v m
+          m <- vHold v m
           return m
         Nothing -> do
           let m1 = addError "function call returned nothing" m
@@ -55,21 +55,24 @@ transStmt (Decr _ _) m = do
   return m1
 transStmt (Ret _ e) m = do
   m <- transExpr e m
-  let m1 = addRetVal m
-  return m1
+  case except m of
+    Right "ok" -> do
+      let m1 = addRetVal m
+      return m1
+    Left _ -> return m
 transStmt (VRet _) m = do
   let m1 = addError "variable return statement not implemented" m
   return m1
 transStmt (Cond _ e s) m = do
   m <- transExpr e m
   case except m of
-    Right "ok" -> case vRead "0" m of
-      Just (ValBool True) -> do
+    Right "ok" -> case vUnhold m of
+      ValBool True -> do
         m <- transStmt s m
         return m
-      Just (ValBool False) -> do
+      ValBool False -> do
         return m
-      Just _ -> do
+      _ -> do
         let m1 = addError "non-boolean condition in if statement" m
         return m1
     Left err -> do
@@ -90,13 +93,13 @@ transExpr (EVar _ _) m = do
   let m1 = addError "variable expressions not implemented" m
   return m1
 transExpr (ELitInt _ i) m = do
-  m <- vDeclare "0" (ValInt i) m
+  m <- vHold (ValInt i) m
   return m
 transExpr (ELitTrue _) m = do
-  m <- vDeclare "0" (ValBool True) m
+  m <- vHold (ValBool True) m
   return m
 transExpr (ELitFalse _) m = do
-  m <- vDeclare "0" (ValBool False) m
+  m <- vHold (ValBool False) m
   return m
 transExpr (EApp _ (Ident ident) l) m = case ident of
   "fail" -> do
@@ -117,43 +120,97 @@ transExpr (EApp _ (Ident ident) l) m = case ident of
         let m1 = addError "call to undefined function" m
         return m1
 transExpr (EString _ str) m = do
-  m <- vDeclare "0" (ValStr str) m
+  m <- vHold (ValStr str) m
   return m
 transExpr (Neg _ e) m = do
   m <- transExpr e m
   case except m of
-    Right "ok" -> case vRead "0" m of
-      Just v -> case v of
-        ValInt i -> do
-          let newValue = ValInt (-i)
-          m <- vDeclare "0" newValue m
-          return m
-        _ -> do
-          let m1 = addError "invalid type passed to arithmetic negation" m
-          return m1
+    Right "ok" -> case vUnhold m of
+      ValInt i -> do
+        let newValue = ValInt (-i)
+        m <- vHold newValue m
+        return m
+      _ -> do
+        let m1 = addError "invalid type passed to arithmetic negation" m
+        return m1
     Left err -> return m
 transExpr (Not _ e) m = do
   m <- transExpr e m
   case except m of
-    Right "ok" -> case vRead "0" m of
-      Just v -> case v of
-        ValBool b -> do
-          let newValue = ValBool (not b)
-          m <- vDeclare "0" newValue m
-          return m
-        _ -> do
-          let m1 = addError "invalid type passed to logical negation" m
-          return m1
+    Right "ok" -> case vUnhold m of
+      ValBool b -> do
+        let newValue = ValBool (not b)
+        m <- vHold newValue m
+        return m
+      _ -> do
+        let m1 = addError "invalid type passed to logical negation" m
+        return m1
     Left err -> return m
-transExpr (EMul _ _ _ _) m = do
-  let m1 = addError "multiplication in expressions not implemented" m
-  return m1
-transExpr (EAdd _ _ _ _) m = do
-  let m1 = addError "addition in expressions not implemented" m
-  return m1
-transExpr (ERel _ _ _ _) m = do
-  let m1 = addError "comparison in expressions not implemented" m
-  return m1
+transExpr (EMul _ l _ r) m = do
+  m <- transExpr l m
+  case except m of
+    Right "ok" -> do
+      let left = vUnhold m
+      m <- transExpr r m
+      case except m of
+        Right "ok" -> do
+          let right = vUnhold m
+          case (left, right) of
+            (ValInt li, ValInt ri) -> do
+              let newValue = ValInt (li * ri)
+              m <- vHold newValue m
+              return m
+            _ -> do
+              let m1 = addError "invalid type passed to arithmetic multiplication" m
+              return m1
+        Left _ -> return m
+    Left _ -> return m
+transExpr (EAdd _ l _ r) m = do
+  m <- transExpr l m
+  case except m of
+    Right "ok" -> do
+      let left = vUnhold m
+      m <- transExpr r m
+      case except m of
+        Right "ok" -> do
+          let right = vUnhold m
+          case (left, right) of
+            (ValInt li, ValInt ri) -> do
+              let newValue = ValInt (li + ri)
+              m <- vHold newValue m
+              return m
+            _ -> do
+              let m1 = addError "invalid type passed to arithmetic addition" m
+              return m1
+        Left _ -> return m
+    Left _ -> return m
+transExpr (ERel _ l _ r) m = do
+  m <- transExpr l m
+  case except m of
+    Right "ok" -> do
+      let left = vUnhold m
+      m <- transExpr r m
+      case except m of
+        Right "ok" -> do
+          let right = vUnhold m
+          case (left, right) of
+            (ValBool lb, ValBool rb) -> do
+              let newValue = ValBool (lb == rb)
+              m <- vHold newValue m
+              return m
+            (ValInt li, ValInt ri) -> do
+              let newValue = ValBool (li == ri)
+              m <- vHold newValue m
+              return m
+            (ValStr ls, ValStr rs) -> do
+              let newValue = ValBool (ls == rs)
+              m <- vHold newValue m
+              return m
+            _ -> do
+              let m1 = addError "invalid type passed to comparison" m
+              return m1
+        Left _ -> return m
+    Left _ -> return m
 transExpr (EAnd _ _ _) m = do
   let m1 = addError "logical \"and\" in expressions not implemented" m
   return m1
