@@ -70,12 +70,36 @@ transStmt (Ass _ ident e) m = do
           let v = vUnhold m
           m <- vDeclare str v m
           return m
-transStmt (Incr _ _) m = do
-  let m1 = addError "increment statement not implemented" m
-  return m1
-transStmt (Decr _ _) m = do
-  let m1 = addError "decrement statement not implemented" m
-  return m1
+transStmt (Incr _ ident) m = do
+  case ident of
+    Ident str -> do
+      let v = vRead str m
+      case v of
+        Just (ValInt i) -> do
+          let newValue = ValInt (i + 1)
+          m <- vDeclare str newValue m
+          return m
+        Just _ -> do
+          let m1 = addError "attempt to increment a non-integer" m
+          return m1
+        Nothing -> do
+          let m1 = addError "increment on an undeclared identifier" m
+          return m1
+transStmt (Decr _ ident) m = do
+  case ident of
+    Ident str -> do
+      let v = vRead str m
+      case v of
+        Just (ValInt i) -> do
+          let newValue = ValInt (i - 1)
+          m <- vDeclare str newValue m
+          return m
+        Just _ -> do
+          let m1 = addError "attempt to decrement a non-integer" m
+          return m1
+        Nothing -> do
+          let m1 = addError "decrement on an undeclared identifier" m
+          return m1
 transStmt (Ret _ e) m = do
   m <- transExpr e m
   case except m of
@@ -101,9 +125,21 @@ transStmt (Cond _ e s) m = do
         return m1
     Left err -> do
       return m
-transStmt (CondElse _ _ _ _) m = do
-  let m1 = addError "if-else statement not implemented" m
-  return m1
+transStmt (CondElse _ e l r) m = do
+  m <- transExpr e m
+  case except m of
+    Right "ok" -> case vUnhold m of
+      ValBool True -> do
+        m <- transStmt l m
+        return m
+      ValBool False -> do
+        m <- transStmt r m
+        return m
+      _ -> do
+        let m1 = addError "non-boolean condition in if-else statement" m
+        return m1
+    Left err -> do
+      return m
 transStmt (While _ _ _) m = do
   let m1 = addError "while loop not implemented" m
   return m1
