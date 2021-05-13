@@ -140,18 +140,32 @@ transStmt (CondElse _ e l r) m = do
         return m1
     Left err -> do
       return m
-transStmt (While _ _ _) m = do
-  let m1 = addError "while loop not implemented" m
-  return m1
+transStmt (While a e s) m = do
+  m <- transExpr e m
+  case except m of
+    Right "ok" -> case vUnhold m of
+      ValBool True -> do
+        m <- transStmt s m
+        m <- transStmt (While a e s) m
+        return m
+      ValBool False -> do
+        return m
+    Left _ -> return m
 transStmt (SExp _ e) m = do
   m <- transExpr e m
   return m
 
 
 transExpr :: Expr a -> MemoryState a -> IO (MemoryState a)
-transExpr (EVar _ _) m = do
-  let m1 = addError "variable expressions not implemented" m
-  return m1
+transExpr (EVar _ ident) m = case ident of
+  Ident str -> do
+    case vRead str m of
+      Just v -> do
+        m <- vHold v m
+        return m
+      Nothing -> do
+        let m1 = addError "expression is an undeclared identifier" m
+        return m1
 transExpr (ELitInt _ i) m = do
   m <- vHold (ValInt i) m
   return m
