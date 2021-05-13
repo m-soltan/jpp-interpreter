@@ -20,8 +20,11 @@ transBlock (Block a l) m = do
   case l of
     [] -> return m
     h : t -> do
-      m <- transStmt h m
-      transBlock (Block a t) m
+      case except m of
+        Right _ -> do
+          m <- transStmt h m
+          transBlock (Block a t) m
+        Left err -> return m
 
 transStmt :: Stmt a -> MemoryState a -> IO (MemoryState a)
 transStmt (Empty _) m = do
@@ -70,12 +73,24 @@ transStmt (SExp _ e) m = do
 
 
 transExpr :: Expr a -> MemoryState a -> IO (MemoryState a)
+transExpr (EVar _ _) m = do
+  let m1 = addError "variable expressions not implemented" m
+  return m1
+transExpr (ELitInt _ i) m = do
+  m <- vDeclare "0" (ValInt i) m
+  return m
+transExpr (ELitTrue _) m = do
+  let m1 = addError "\"true\" literal not implemented" m
+  return m1
+transExpr (ELitFalse _) m = do
+  let m1 = addError "\"false\" literal not implemented" m
+  return m1
 transExpr (EApp _ (Ident ident) l) m = case ident of
   "fail" -> do
     case l of
       [EString _ str] -> do
-        let m = addError str m
-        return m
+        let m1 = addError str m
+        return m1
   "printString" -> do
     case l of
       [EString _ str] -> do
@@ -88,6 +103,27 @@ transExpr (EApp _ (Ident ident) l) m = case ident of
       Nothing -> do
         let m1 = addError "call to undefined function" m
         return m1
-transExpr (ELitInt _ i) m = do
-  m <- vDeclare "0" (ValInt i) m
-  return m
+transExpr (EString _ _) m = do
+  let m1 = addError "String literals not implemented" m
+  return m1
+transExpr (Neg _ _) m = do
+  let m1 = addError "arithmetic negation in expressions not implemented" m
+  return m1
+transExpr (Not _ _) m = do
+  let m1 = addError "logical negation in expressions not implemented" m
+  return m1
+transExpr (EMul _ _ _ _) m = do
+  let m1 = addError "multiplication in expressions not implemented" m
+  return m1
+transExpr (EAdd _ _ _ _) m = do
+  let m1 = addError "addition in expressions not implemented" m
+  return m1
+transExpr (ERel _ _ _ _) m = do
+  let m1 = addError "comparison in expressions not implemented" m
+  return m1
+transExpr (EAnd _ _ _) m = do
+  let m1 = addError "logical \"and\" in expressions not implemented" m
+  return m1
+transExpr (EOr _ _ _) m = do
+  let m1 = addError "logical \"or\" in expressions not implemented" m
+  return m1
