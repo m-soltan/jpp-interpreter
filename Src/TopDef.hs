@@ -12,19 +12,28 @@ transTopDef (FnDef _ type_ ident args block) m = do
 callFunc :: Src.Parsing.AbsLatte.TopDef a -> MemoryState a -> IO (MemoryState a)
 callFunc f m = case f of
   FnDef _ type_ (Ident k) args block -> do
-    m <- transBlock block m
-    return m
+    callResult <- transBlock block (functionScope m)
+    case except callResult of
+      Right "ok" -> case vRead "0" callResult of
+        Just v -> do
+          m <- vDeclare "0" v m
+          return m
+        Nothing -> do
+          let m1 = addError "function call returned nothing" m
+          return m1
+      Left err -> do
+        return (addError err m)
 
 transBlock :: Src.Parsing.AbsLatte.Block a -> MemoryState a -> IO (MemoryState a)
 transBlock (Block a l) m = do
   case l of
     [] -> return m
     h : t -> do
-      case except m of
-        Right _ -> do
-          m <- transStmt h m
+      m <- transStmt h m
+      case (except m, retVal m) of
+        (Right "ok", Nothing) -> do
           transBlock (Block a t) m
-        Left err -> return m
+        _ -> return m
 
 transStmt :: Stmt a -> MemoryState a -> IO (MemoryState a)
 transStmt (Empty _) m = do
@@ -46,21 +55,25 @@ transStmt (Decr _ _) m = do
   return m1
 transStmt (Ret _ e) m = do
   m <- transExpr e m
-  return m
+  let m1 = addRetVal m
+  return m1
 transStmt (VRet _) m = do
   let m1 = addError "variable return statement not implemented" m
   return m1
 transStmt (Cond _ e s) m = do
   m <- transExpr e m
-  case vRead "0" m of
-    Just (ValBool True) -> do
-      m <- transStmt s m
+  case except m of
+    Left err -> do
       return m
-    Just (ValBool False) -> do
-      return m
-    Just _ -> do
-      let m1 = addError "non-boolean condition in if statement" m
-      return m1
+    Right "ok" -> case vRead "0" m of
+      Just (ValBool True) -> do
+        m <- transStmt s m
+        return m
+      Just (ValBool False) -> do
+        return m
+      Just _ -> do
+        let m1 = addError "non-boolean condition in if statement" m
+        return m1
 transStmt (CondElse _ _ _ _) m = do
   let m1 = addError "if-else statement not implemented" m
   return m1
@@ -80,11 +93,11 @@ transExpr (ELitInt _ i) m = do
   m <- vDeclare "0" (ValInt i) m
   return m
 transExpr (ELitTrue _) m = do
-  let m1 = addError "\"true\" literal not implemented" m
-  return m1
+  m <- vDeclare "0" (ValBool True) m
+  return m
 transExpr (ELitFalse _) m = do
-  let m1 = addError "\"false\" literal not implemented" m
-  return m1
+  m <- vDeclare "0" (ValBool False) m
+  return m
 transExpr (EApp _ (Ident ident) l) m = case ident of
   "fail" -> do
     case l of

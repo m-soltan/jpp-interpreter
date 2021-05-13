@@ -7,21 +7,36 @@ import Src.Parsing.SkelLatte ( Err, Result )
 import Src.Util ( (|>) )
 
 addError :: String -> MemoryState a -> MemoryState a
-addError err m = MemoryState {
-  funcs = funcs m,
-  vIdent = vIdent m,
-  vStore = vStore m,
-  except = Left err
-}
+addError err m = case (except m, retVal m) of
+  (Right "ok", Nothing) -> MemoryState {
+    funcs = funcs m,
+    vIdent = vIdent m,
+    vStore = vStore m,
+    except = Left err,
+    retVal = retVal m
+  }
 
 addFunction :: (TopDef a) -> MemoryState a -> MemoryState a
 addFunction fun m = case fun of
-  (FnDef _ _ (Ident str) _ _) -> MemoryState {
-  funcs = m |> funcs |> insert str (Just fun),
-  vIdent = vIdent m,
-  vStore = vStore m,
-  except = except m
-}
+  (FnDef _ _ (Ident str) _ _) -> case (except m, retVal m) of
+    (Right "ok", Nothing) -> MemoryState {
+      funcs = m |> funcs |> insert str (Just fun),
+      vIdent = vIdent m,
+      vStore = vStore m,
+      except = except m,
+      retVal = retVal m
+    }
+
+addRetVal :: MemoryState a -> MemoryState a
+addRetVal m = case (except m, retVal m) of
+  (Right "ok", Nothing) -> case vRead "0" m of
+    Just x -> MemoryState {
+      funcs = funcs m,
+      vIdent = vIdent m,
+      vStore = vStore m,
+      except = except m,
+      retVal = Just x
+    }
 
 builtins :: Map String (Maybe (TopDef a))
 builtins = empty
@@ -33,12 +48,23 @@ emptyState = MemoryState {
   funcs = builtins,
   vIdent = empty,
   vStore = empty,
-  except = Right "ok"
+  except = Right "ok",
+  retVal = Nothing
 }
 
 fromDefs :: [TopDef a] -> MemoryState a
 fromDefs [] = emptyState
 fromDefs (h : t) = fromDefs t |> addFunction h
+
+functionScope :: MemoryState a -> MemoryState a
+functionScope m = case except m of
+  Right "ok" -> MemoryState {
+    funcs = funcs m,
+    vIdent = empty,
+    vStore = empty,
+    except = Right "ok",
+    retVal = Nothing
+  }
 
 getFunction :: String -> MemoryState a -> Maybe (TopDef a)
 getFunction ident m = case m |> funcs |> Data.Map.lookup ident of
@@ -52,7 +78,8 @@ vDeclare ident v m = do
     funcs = funcs m,
     vIdent = m |> vIdent |> insert ident sz,
     vStore = m |> vStore |> insert sz v,
-    except = except m
+    except = except m,
+    retVal = retVal m
   }
 
 vRead :: String -> MemoryState a -> Maybe MemoryValue
@@ -65,7 +92,9 @@ data MemoryState a = MemoryState {
   funcs :: Map String (Maybe (TopDef a)),
   vIdent :: Map String Int,
   vStore :: Map Int MemoryValue,
-  except :: Result
+  except :: Result,
+  -- functionn return value
+  retVal :: Maybe MemoryValue
 }
 
 data MemoryValue = ValStr String | ValInt Integer | ValBool Bool
