@@ -71,8 +71,8 @@ builtins = empty
  |> insert "fail" Nothing
  |> insert "printString" Nothing
 
-emptyState :: MemoryState a
-emptyState = MemoryState {
+emptyState :: a -> MemoryState a
+emptyState a = MemoryState {
   funcs = builtins,
   vIdent = empty,
   vLocal = empty,
@@ -82,9 +82,9 @@ emptyState = MemoryState {
   retVal = Nothing
 }
 
-fromDefs :: [TopDef a] -> MemoryState a
-fromDefs [] = emptyState
-fromDefs (h : t) = fromDefs t |> addFunction h
+fromDefs :: a -> [TopDef a] -> MemoryState a
+fromDefs a [] = emptyState a
+fromDefs a (h : t) = fromDefs a t |> addFunction h
 
 functionScope :: MemoryState a -> MemoryState a
 functionScope m = case except m of
@@ -209,5 +209,8 @@ data MemoryState a = MemoryState {
   -- functionn return value
   retVal :: Maybe (MemoryValue a)
 }
+
+data IdsState a = Global a (Map String (Type a, Int))
+    | Local a (Map String (Type a, Int)) (IdsState a)
 
 data MemoryValue a = ValStr a String | ValInt a Integer | ValBool a Bool | ValVoid a

@@ -9,9 +9,9 @@ import Src.Parsing.SkelLatte ( Err, Result )
 import Src.TopDef
 import Src.Util ( (|>) )
 
-trans :: Src.Parsing.AbsLatte.Program () -> IO Result
-trans (Program () l) = do
-  let defs = fromDefs l
+trans :: Src.Parsing.AbsLatte.Program a -> IO Result
+trans (Program a l) = do
+  let defs = fromDefs a l
   after <- callMain defs
   let retCode = except after
   return retCode
