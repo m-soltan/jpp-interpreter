@@ -1,9 +1,11 @@
 module Src.TopDef where
 
+import Data.Map
+
 import Src.Memory
 import Src.Parsing.AbsLatte
 import Src.Parsing.SkelLatte (Err, Result)
-import Src.Util ( (|>) )
+import Src.Util
 
 transTopDef :: Src.Parsing.AbsLatte.TopDef a -> MemoryState a -> IO Result
 transTopDef (FnDef _ type_ ident args block) m = do
@@ -24,16 +26,22 @@ callFunc f m = case f of
       Left err -> do
         return (addError err m)
 
+blockAux :: [Stmt a] -> MemoryState a -> IO (MemoryState a)
+blockAux [] m = do
+  return m
+blockAux (h : t) m = do
+  m <- transStmt h m
+  case except m of
+    Right "ok" -> blockAux t m
+    Left _ -> return m
+
 transBlock :: Src.Parsing.AbsLatte.Block a -> MemoryState a -> IO (MemoryState a)
 transBlock (Block a l) m = do
-  case l of
-    [] -> return m
-    h : t -> do
-      m <- transStmt h m
-      case (except m, retVal m) of
-        (Right "ok", Nothing) -> do
-          transBlock (Block a t) m
-        _ -> return m
+  let local = vLocal m
+  let m1 = setLocal empty m
+  m1 <- blockAux l m1
+  let m2 = setLocal local m1
+  return m2
 
 transItems :: [Src.Parsing.AbsLatte.Item a] -> MemoryState a -> IO (MemoryState a)
 transItems [] m = do
@@ -56,8 +64,8 @@ transStmt :: Stmt a -> MemoryState a -> IO (MemoryState a)
 transStmt (Empty _) m = do
   return m
 transStmt (BStmt _ b) m = do
-  let m1 = addError "block statement not implemented" m
-  return m1
+  m <- transBlock b m
+  return m
 transStmt (Decl _ t l) m = do
   m <- transItems l m
   return m
@@ -67,9 +75,11 @@ transStmt (Ass _ ident e) m = do
     Right "ok" -> do
       case ident of
         Ident str -> do
+          dbgPrint "assign"
           let v = vUnhold m
           m <- vDeclare str v m
           return m
+    Left _ -> return m
 transStmt (Incr _ ident) m = do
   case ident of
     Ident str -> do
@@ -280,6 +290,9 @@ transExpr (ERel _ l _ r) m = do
               let newValue = ValBool (ls == rs)
               m <- vHold newValue m
               return m
+            (ValBool _, ValInt _) -> do
+              let m1 = addError "test" m
+              return m1
             _ -> do
               let m1 = addError "invalid type passed to comparison" m
               return m1

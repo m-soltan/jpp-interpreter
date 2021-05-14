@@ -11,6 +11,7 @@ addError err m = case (except m, retVal m) of
   (Right "ok", Nothing) -> MemoryState {
     funcs = funcs m,
     vIdent = vIdent m,
+    vLocal = vLocal m,
     vStore = vStore m,
     except = Left err,
     retVal = retVal m
@@ -22,6 +23,7 @@ addFunction fun m = case fun of
     (Right "ok", Nothing) -> MemoryState {
       funcs = m |> funcs |> insert str (Just fun),
       vIdent = vIdent m,
+      vLocal = vLocal m,
       vStore = vStore m,
       except = except m,
       retVal = retVal m
@@ -32,10 +34,32 @@ addRetVal m = case (except m, retVal m) of
   (Right "ok", _) -> MemoryState {
       funcs = funcs m,
       vIdent = vIdent m,
+      vLocal = vLocal m,
       vStore = vStore m,
       except = except m,
       retVal = m |> vUnhold |> Just
     }
+
+blockScope :: MemoryState a -> MemoryState a
+blockScope m = case (except m, retVal m) of
+  (Right "ok", Nothing) -> MemoryState {
+    funcs = funcs m,
+    vIdent = vIdent m,
+    vLocal = empty,
+    vStore = vStore m,
+    except = except m,
+    retVal = retVal m
+  }
+
+setLocal :: (Map String ()) -> MemoryState a -> MemoryState a
+setLocal local m = MemoryState {
+  funcs = funcs m,
+  vIdent = vIdent m,
+  vLocal = local,
+  vStore = vStore m,
+  except = except m,
+  retVal = retVal m
+}
 
 builtins :: Map String (Maybe (TopDef a))
 builtins = empty
@@ -46,6 +70,7 @@ emptyState :: MemoryState a
 emptyState = MemoryState {
   funcs = builtins,
   vIdent = empty,
+  vLocal = empty,
   vStore = empty,
   except = Right "ok",
   retVal = Nothing
@@ -60,6 +85,7 @@ functionScope m = case except m of
   Right "ok" -> MemoryState {
     funcs = funcs m,
     vIdent = empty,
+    vLocal = empty,
     vStore = empty,
     except = Right "ok",
     retVal = Nothing
@@ -80,6 +106,7 @@ vDeclare ident v m = do
   return MemoryState {
     funcs = funcs m,
     vIdent = m |> vIdent |> insert ident sz,
+    vLocal = vLocal m,
     vStore = m |> vStore |> insert sz v,
     except = except m,
     retVal = retVal m
@@ -98,6 +125,7 @@ vUnhold m = case vRead "0" m of
 data MemoryState a = MemoryState {
   funcs :: Map String (Maybe (TopDef a)),
   vIdent :: Map String Int,
+  vLocal :: Map String (),
   vStore :: Map Int MemoryValue,
   except :: Result,
   -- functionn return value
