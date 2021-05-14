@@ -96,40 +96,82 @@ getFunction ident m = case m |> funcs |> Data.Map.lookup ident of
     Just (Just v) -> Just v
     Nothing -> Nothing
 
--- store the immediate result or return value
-vHold :: MemoryValue -> MemoryState a -> IO (MemoryState a)
-vHold = vDeclare "0"
+typeOf :: MemoryValue a -> Type a
+typeOf (ValStr a _) = Str a
+typeOf (ValInt a _) = Int a
+typeOf (ValBool a _) = Bool a
+typeOf (ValVoid a) = Void a
 
-vDeclare :: String -> MemoryValue -> MemoryState a -> IO (MemoryState a)
+vAssign :: String -> MemoryValue a -> MemoryState a -> IO (MemoryState a)
+vAssign ident v m = case m |> vIdent |> Data.Map.lookup ident of
+  Just (t, cell) -> do
+    let newMap = vReplace ident v m
+    case (v, t) of
+      (ValStr _ _, Str _) -> return newMap
+      (ValInt _ _, Int _) -> return newMap
+      (ValBool _ _, Bool _) -> return newMap
+
+
+vDelete :: String -> MemoryState a -> MemoryState a
+vDelete s m = MemoryState {
+  funcs = funcs m,
+  vIdent = m |> vIdent |> delete s,
+  vLocal = vLocal m,
+  vStore = vStore m,
+  except = except m,
+  retVal = retVal m
+}
+
+vDeclare :: String -> MemoryValue a -> MemoryState a -> IO (MemoryState a)
 vDeclare ident v m = do
   let sz = m |> vIdent |> size
   return MemoryState {
     funcs = funcs m,
-    vIdent = m |> vIdent |> insert ident sz,
+    vIdent = m |> vIdent |> insert ident (typeOf v, sz),
     vLocal = vLocal m,
     vStore = m |> vStore |> insert sz v,
     except = except m,
     retVal = retVal m
   }
 
-vRead :: String -> MemoryState a -> Maybe MemoryValue
-vRead ident m = case m |> vIdent |> Data.Map.lookup ident of
-  Just cell -> m |> vStore |> Data.Map.lookup cell
+vGetType :: String -> MemoryState a -> Maybe (Type a)
+vGetType ident m = case m |> vIdent |> Data.Map.lookup ident of
+  Just (t, _) -> Just t
   Nothing -> Nothing
 
+-- store the immediate result or return value
+vHold :: MemoryValue a -> MemoryState a -> IO (MemoryState a)
+vHold = vDeclare "0"
+
+vRead :: String -> MemoryState a -> Maybe (MemoryValue a)
+vRead ident m = case m |> vIdent |> Data.Map.lookup ident of
+  Just (_, cell) -> m |> vStore |> Data.Map.lookup cell
+  Nothing -> Nothing
+
+vReplace :: String -> MemoryValue a -> MemoryState a -> MemoryState a
+vReplace ident v m = case m |> vIdent |> Data.Map.lookup ident of
+  Just (_, i) -> MemoryState {
+    funcs = funcs m,
+    vIdent = vIdent m,
+    vLocal = vLocal m,
+    vStore = m |> vStore |> insert i v,
+    except = except m,
+    retVal = retVal m 
+  }
+
 -- get the held value
-vUnhold :: MemoryState a -> MemoryValue
+vUnhold :: MemoryState a -> MemoryValue a
 vUnhold m = case vRead "0" m of
   Just v -> v
 
 data MemoryState a = MemoryState {
   funcs :: Map String (Maybe (TopDef a)),
-  vIdent :: Map String Int,
+  vIdent :: Map String (Type a, Int),
   vLocal :: Map String (),
-  vStore :: Map Int MemoryValue,
+  vStore :: Map Int (MemoryValue a),
   except :: Result,
   -- functionn return value
-  retVal :: Maybe MemoryValue
+  retVal :: Maybe (MemoryValue a)
 }
 
-data MemoryValue = ValStr String | ValInt Integer | ValBool Bool | ValVoid
+data MemoryValue a = ValStr a String | ValInt a Integer | ValBool a Bool | ValVoid a

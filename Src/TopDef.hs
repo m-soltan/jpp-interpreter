@@ -13,7 +13,7 @@ transTopDef (FnDef _ type_ ident args block) m = do
 
 callFunc :: Src.Parsing.AbsLatte.TopDef a -> MemoryState a -> IO (MemoryState a)
 callFunc f m = case f of
-  FnDef _ type_ (Ident k) args block -> do
+  FnDef _ t (Ident k) args block -> do
     callResult <- transBlock block (functionScope m)
     case except callResult of
       Right "ok" -> case vRead "0" callResult of
@@ -43,12 +43,12 @@ transBlock (Block a l) m = do
   let m2 = setLocal local m1
   return m2
 
-transItems :: [Src.Parsing.AbsLatte.Item a] -> MemoryState a -> IO (MemoryState a)
-transItems [] m = do
+transItems :: Type a -> [Src.Parsing.AbsLatte.Item a] -> MemoryState a -> IO (MemoryState a)
+transItems t [] m = do
   return m
-transItems (h : t) m = case h of
-  NoInit _ ident -> case ident of
-    Ident str -> vDeclare str ValVoid m
+transItems tp (h : t) m = case h of
+  NoInit a ident -> case ident of
+    Ident str -> vDeclare str (ValVoid a) m
   Init _ ident e -> do
     m <- transExpr e m
     case except m of
@@ -67,28 +67,30 @@ transStmt (BStmt _ b) m = do
   m <- transBlock b m
   return m
 transStmt (Decl _ t l) m = do
-  m <- transItems l m
+  m <- transItems t l m
   return m
-transStmt (Ass _ ident e) m = do
+transStmt (Ass _ (Ident ident) e) m = do
   m <- transExpr e m
   case except m of
     Right "ok" -> do
-      case ident of
-        Ident str -> do
-          dbgPrint "assign"
-          let v = vUnhold m
-          m <- vDeclare str v m
-          return m
+      let newValue = vUnhold m
+      case (vGetType ident m, newValue) of
+        (Just (Str _), ValStr _ _) -> return (vReplace ident newValue m)
+        (Just (Int _), ValInt _ _) -> return (vReplace ident newValue m)
+        (Just (Bool _), ValBool _ _) -> return (vReplace ident newValue m)
+        _ -> do
+          let m1 = addError "assignment on unsupported types" m
+          return m1
     Left _ -> return m
 transStmt (Incr _ ident) m = do
   case ident of
     Ident str -> do
       let v = vRead str m
       case v of
-        Just (ValInt i) -> do
-          let newValue = ValInt (i + 1)
-          m <- vDeclare str newValue m
-          return m
+        Just (ValInt a i) -> do
+          let newValue = ValInt a (i + 1)
+          let m1 = vReplace str newValue m
+          return m1
         Just _ -> do
           let m1 = addError "attempt to increment a non-integer" m
           return m1
@@ -100,10 +102,10 @@ transStmt (Decr _ ident) m = do
     Ident str -> do
       let v = vRead str m
       case v of
-        Just (ValInt i) -> do
-          let newValue = ValInt (i - 1)
-          m <- vDeclare str newValue m
-          return m
+        Just (ValInt a i) -> do
+          let newValue = ValInt a (i - 1)
+          let m1 = vReplace str newValue m
+          return m1
         Just _ -> do
           let m1 = addError "attempt to decrement a non-integer" m
           return m1
@@ -117,18 +119,18 @@ transStmt (Ret _ e) m = do
       let m1 = addRetVal m
       return m1
     Left _ -> return m
-transStmt (VRet _) m = do
-  m <- vHold ValVoid m
+transStmt (VRet a) m = do
+  m <- vHold (ValVoid a) m
   let m1 = addRetVal m
   return m1
 transStmt (Cond _ e s) m = do
   m <- transExpr e m
   case except m of
     Right "ok" -> case vUnhold m of
-      ValBool True -> do
+      ValBool _ True -> do
         m <- transStmt s m
         return m
-      ValBool False -> do
+      ValBool _ False -> do
         return m
       _ -> do
         let m1 = addError "non-boolean condition in if statement" m
@@ -139,10 +141,10 @@ transStmt (CondElse _ e l r) m = do
   m <- transExpr e m
   case except m of
     Right "ok" -> case vUnhold m of
-      ValBool True -> do
+      ValBool _ True -> do
         m <- transStmt l m
         return m
-      ValBool False -> do
+      ValBool _ False -> do
         m <- transStmt r m
         return m
       _ -> do
@@ -154,11 +156,11 @@ transStmt (While a e s) m = do
   m <- transExpr e m
   case except m of
     Right "ok" -> case vUnhold m of
-      ValBool True -> do
+      ValBool _ True -> do
         m <- transStmt s m
         m <- transStmt (While a e s) m
         return m
-      ValBool False -> do
+      ValBool _ False -> do
         return m
     Left _ -> return m
 transStmt (SExp _ e) m = do
@@ -176,14 +178,14 @@ transExpr (EVar _ ident) m = case ident of
       Nothing -> do
         let m1 = addError "expression is an undeclared identifier" m
         return m1
-transExpr (ELitInt _ i) m = do
-  m <- vHold (ValInt i) m
+transExpr (ELitInt a i) m = do
+  m <- vHold (ValInt a i) m
   return m
-transExpr (ELitTrue _) m = do
-  m <- vHold (ValBool True) m
+transExpr (ELitTrue a) m = do
+  m <- vHold (ValBool a True) m
   return m
-transExpr (ELitFalse _) m = do
-  m <- vHold (ValBool False) m
+transExpr (ELitFalse a) m = do
+  m <- vHold (ValBool a False) m
   return m
 transExpr (EApp _ (Ident ident) l) m = case ident of
   "fail" -> do
@@ -203,15 +205,15 @@ transExpr (EApp _ (Ident ident) l) m = case ident of
       Nothing -> do
         let m1 = addError "call to undefined function" m
         return m1
-transExpr (EString _ str) m = do
-  m <- vHold (ValStr str) m
+transExpr (EString a str) m = do
+  m <- vHold (ValStr a str) m
   return m
 transExpr (Neg _ e) m = do
   m <- transExpr e m
   case except m of
     Right "ok" -> case vUnhold m of
-      ValInt i -> do
-        let newValue = ValInt (-i)
+      ValInt a i -> do
+        let newValue = ValInt a (-i)
         m <- vHold newValue m
         return m
       _ -> do
@@ -222,8 +224,8 @@ transExpr (Not _ e) m = do
   m <- transExpr e m
   case except m of
     Right "ok" -> case vUnhold m of
-      ValBool b -> do
-        let newValue = ValBool (not b)
+      ValBool a b -> do
+        let newValue = ValBool a (not b)
         m <- vHold newValue m
         return m
       _ -> do
@@ -240,8 +242,8 @@ transExpr (EMul _ l _ r) m = do
         Right "ok" -> do
           let right = vUnhold m
           case (left, right) of
-            (ValInt li, ValInt ri) -> do
-              let newValue = ValInt (li * ri)
+            (ValInt a li, ValInt _ ri) -> do
+              let newValue = ValInt a (li * ri)
               m <- vHold newValue m
               return m
             _ -> do
@@ -259,8 +261,8 @@ transExpr (EAdd _ l _ r) m = do
         Right "ok" -> do
           let right = vUnhold m
           case (left, right) of
-            (ValInt li, ValInt ri) -> do
-              let newValue = ValInt (li + ri)
+            (ValInt a li, ValInt _ ri) -> do
+              let newValue = ValInt a (li + ri)
               m <- vHold newValue m
               return m
             _ -> do
@@ -278,19 +280,19 @@ transExpr (ERel _ l _ r) m = do
         Right "ok" -> do
           let right = vUnhold m
           case (left, right) of
-            (ValBool lb, ValBool rb) -> do
-              let newValue = ValBool (lb == rb)
+            (ValBool a lb, ValBool _ rb) -> do
+              let newValue = ValBool a (lb == rb)
               m <- vHold newValue m
               return m
-            (ValInt li, ValInt ri) -> do
-              let newValue = ValBool (li == ri)
+            (ValInt a li, ValInt _ ri) -> do
+              let newValue = ValBool a (li == ri)
               m <- vHold newValue m
               return m
-            (ValStr ls, ValStr rs) -> do
-              let newValue = ValBool (ls == rs)
+            (ValStr a ls, ValStr _ rs) -> do
+              let newValue = ValBool a (ls == rs)
               m <- vHold newValue m
               return m
-            (ValBool _, ValInt _) -> do
+            (ValBool a _, ValInt _ _) -> do
               let m1 = addError "test" m
               return m1
             _ -> do
@@ -308,8 +310,8 @@ transExpr (EAnd _ l r) m = do
         Right "ok" -> do
           let right = vUnhold m
           case (left, right) of
-            (ValBool lb, ValBool rb) -> do
-              let newValue = ValBool (lb && rb)
+            (ValBool a lb, ValBool _ rb) -> do
+              let newValue = ValBool a (lb && rb)
               m <- vHold newValue m
               return m
             _ -> do
@@ -327,8 +329,8 @@ transExpr (EOr _ l r) m = do
         Right "ok" -> do
           let right = vUnhold m
           case (left, right) of
-            (ValBool lb, ValBool rb) -> do
-              let newValue = ValBool (lb || rb)
+            (ValBool a lb, ValBool _ rb) -> do
+              let newValue = ValBool a (lb || rb)
               m <- vHold newValue m
               return m
             _ -> do
