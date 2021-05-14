@@ -123,16 +123,18 @@ vDelete s m = MemoryState {
 }
 
 vDeclare :: String -> MemoryValue a -> MemoryState a -> IO (MemoryState a)
-vDeclare ident v m = do
-  let sz = m |> vIdent |> size
-  return MemoryState {
-    funcs = funcs m,
-    vIdent = m |> vIdent |> insert ident (typeOf v, sz),
-    vLocal = vLocal m,
-    vStore = m |> vStore |> insert sz v,
-    except = except m,
-    retVal = retVal m
-  }
+vDeclare ident v m = case m |> vIdent |> Data.Map.lookup ident of
+  Just _ -> return (addError ("redeclaration of variable " ++ ident) m)
+  Nothing -> do
+    let sz = m |> vIdent |> size
+    return MemoryState {
+      funcs = funcs m,
+      vIdent = m |> vIdent |> insert ident (typeOf v, sz),
+      vLocal = vLocal m,
+      vStore = m |> vStore |> insert sz v,
+      except = except m,
+      retVal = retVal m
+    }
 
 vGetType :: String -> MemoryState a -> Maybe (Type a)
 vGetType ident m = case m |> vIdent |> Data.Map.lookup ident of
