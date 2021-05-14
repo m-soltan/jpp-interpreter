@@ -31,10 +31,12 @@ blockAux :: [Stmt a] -> MemoryState a -> IO (MemoryState a)
 blockAux [] m = do
   return m
 blockAux (h : t) m = do
-  m <- transStmt h m
-  case except m of
-    Right "ok" -> blockAux t m
-    Left _ -> return m
+  case (except m, retVal m) of
+    (Right "ok", Nothing) -> do
+      m <- transStmt h m
+      m <- blockAux t m
+      return m
+    _ -> return m
 
 transBlock :: Src.Parsing.AbsLatte.Block a -> MemoryState a -> IO (MemoryState a)
 transBlock (Block a l) m = do
