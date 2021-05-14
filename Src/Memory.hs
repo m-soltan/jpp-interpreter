@@ -13,6 +13,7 @@ addError err m = case (except m, retVal m) of
     vIdent = vIdent m,
     vLocal = vLocal m,
     vStore = vStore m,
+    ans = ans m,
     except = Left err,
     retVal = retVal m
   }
@@ -25,6 +26,7 @@ addFunction fun m = case fun of
       vIdent = vIdent m,
       vLocal = vLocal m,
       vStore = vStore m,
+      ans = ans m,
       except = except m,
       retVal = retVal m
     }
@@ -36,6 +38,7 @@ addRetVal m = case (except m, retVal m) of
       vIdent = vIdent m,
       vLocal = vLocal m,
       vStore = vStore m,
+      ans = ans m,
       except = except m,
       retVal = m |> vUnhold |> Just
     }
@@ -47,6 +50,7 @@ blockScope m = case (except m, retVal m) of
     vIdent = vIdent m,
     vLocal = empty,
     vStore = vStore m,
+    ans = ans m,
     except = except m,
     retVal = retVal m
   }
@@ -57,6 +61,7 @@ setLocal local m = MemoryState {
   vIdent = vIdent m,
   vLocal = local,
   vStore = vStore m,
+  ans = ans m,
   except = except m,
   retVal = retVal m
 }
@@ -72,6 +77,7 @@ emptyState = MemoryState {
   vIdent = empty,
   vLocal = empty,
   vStore = empty,
+  ans = Nothing,
   except = Right "ok",
   retVal = Nothing
 }
@@ -87,6 +93,7 @@ functionScope m = case except m of
     vIdent = empty,
     vLocal = empty,
     vStore = empty,
+    ans = Nothing,
     except = Right "ok",
     retVal = Nothing
   }
@@ -112,18 +119,32 @@ vAssign ident v m = case m |> vIdent |> Data.Map.lookup ident of
       (ValBool _ _, Bool _) -> return newMap
 
 
+vDeclare :: String -> Type a -> MemoryState a -> IO (MemoryState a)
+vDeclare ident t m = do
+  let sz = m |> vIdent |> size
+  return MemoryState {
+      funcs = funcs m,
+      vIdent = m |> vIdent |> insert ident (t, sz),
+      vLocal = vLocal m,
+      vStore = vStore m,
+      ans = ans m,
+      except = except m,
+      retVal = retVal m
+    }
+
 vDelete :: String -> MemoryState a -> MemoryState a
 vDelete s m = MemoryState {
   funcs = funcs m,
   vIdent = m |> vIdent |> delete s,
   vLocal = vLocal m,
   vStore = vStore m,
+  ans = ans m,
   except = except m,
   retVal = retVal m
 }
 
-vDeclare :: String -> MemoryValue a -> MemoryState a -> IO (MemoryState a)
-vDeclare ident v m = case m |> vIdent |> Data.Map.lookup ident of
+vInitialize :: String -> MemoryValue a -> MemoryState a -> IO (MemoryState a)
+vInitialize ident v m = case m |> vIdent |> Data.Map.lookup ident of
   Just _ -> return (addError ("redeclaration of variable " ++ ident) m)
   Nothing -> do
     let sz = m |> vIdent |> size
@@ -132,6 +153,7 @@ vDeclare ident v m = case m |> vIdent |> Data.Map.lookup ident of
       vIdent = m |> vIdent |> insert ident (typeOf v, sz),
       vLocal = vLocal m,
       vStore = m |> vStore |> insert sz v,
+      ans = ans m,
       except = except m,
       retVal = retVal m
     }
@@ -143,7 +165,17 @@ vGetType ident m = case m |> vIdent |> Data.Map.lookup ident of
 
 -- store the immediate result or return value
 vHold :: MemoryValue a -> MemoryState a -> IO (MemoryState a)
-vHold = vDeclare "0"
+vHold v m = do
+  let m1 = MemoryState {
+    funcs = funcs m,
+    vIdent = vIdent m,
+    vLocal = vLocal m,
+    vStore = vStore m,
+    ans = Just v,
+    except = except m,
+    retVal = retVal m
+  }
+  return m1
 
 vRead :: String -> MemoryState a -> Maybe (MemoryValue a)
 vRead ident m = case m |> vIdent |> Data.Map.lookup ident of
@@ -157,13 +189,14 @@ vReplace ident v m = case m |> vIdent |> Data.Map.lookup ident of
     vIdent = vIdent m,
     vLocal = vLocal m,
     vStore = m |> vStore |> insert i v,
+    ans = ans m,
     except = except m,
     retVal = retVal m 
   }
 
 -- get the held value
 vUnhold :: MemoryState a -> MemoryValue a
-vUnhold m = case vRead "0" m of
+vUnhold m = case ans m of
   Just v -> v
 
 data MemoryState a = MemoryState {
@@ -171,6 +204,7 @@ data MemoryState a = MemoryState {
   vIdent :: Map String (Type a, Int),
   vLocal :: Map String (),
   vStore :: Map Int (MemoryValue a),
+  ans :: Maybe (MemoryValue a),
   except :: Result,
   -- functionn return value
   retVal :: Maybe (MemoryValue a)

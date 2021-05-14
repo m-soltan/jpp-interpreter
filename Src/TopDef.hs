@@ -14,9 +14,10 @@ transTopDef (FnDef _ type_ ident args block) m = do
 callFunc :: Src.Parsing.AbsLatte.TopDef a -> MemoryState a -> IO (MemoryState a)
 callFunc f m = case f of
   FnDef _ t (Ident k) args block -> do
+    let m1 = vDeclare
     callResult <- transBlock block (functionScope m)
     case except callResult of
-      Right "ok" -> case vRead "0" callResult of
+      Right "ok" -> case ans callResult of
         Just v -> do
           m <- vHold v m
           return m
@@ -44,11 +45,12 @@ transBlock (Block a l) m = do
   return m2
 
 transItems :: Type a -> [Src.Parsing.AbsLatte.Item a] -> MemoryState a -> IO (MemoryState a)
-transItems t [] m = do
+transItems _ [] m = do
   return m
 transItems tp (h : t) m = case h of
-  NoInit a ident -> case ident of
-    Ident str -> vDeclare str (ValVoid a) m
+  NoInit a (Ident ident) -> do
+    m <- vDeclare ident tp m
+    return m
   Init _ ident e -> do
     m <- transExpr e m
     case except m of
@@ -56,7 +58,8 @@ transItems tp (h : t) m = case h of
         case ident of
           Ident str -> do
             let v = vUnhold m
-            m <- vDeclare str v m
+            m <- vInitialize str v m
+            m <- transItems tp t m
             return m
       _ -> return m
 
