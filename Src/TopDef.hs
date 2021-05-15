@@ -40,11 +40,9 @@ blockAux (h : t) m = do
 
 transBlock :: Src.Parsing.AbsLatte.Block a -> MemoryState a -> IO (MemoryState a)
 transBlock (Block a l) m = do
-  let local = vLocal m
-  let m1 = setLocal empty m
+  let m1 = blockScope m
   m1 <- blockAux l m1
-  let m2 = setLocal local m1
-  return m2
+  return (fromScope m1 m)
 
 transItems :: Type a -> [Src.Parsing.AbsLatte.Item a] -> MemoryState a -> IO (MemoryState a)
 transItems _ [] m = do
@@ -79,12 +77,16 @@ transStmt (Ass _ (Ident ident) e) m = do
   case except m of
     Right "ok" -> do
       let newValue = vUnhold m
-      case (vGetType ident m, newValue) of
-        (Just (Str _), ValStr _ _) -> return (vReplace ident newValue m)
-        (Just (Int _), ValInt _ _) -> return (vReplace ident newValue m)
-        (Just (Bool _), ValBool _ _) -> return (vReplace ident newValue m)
-        _ -> do
-          let m1 = addError "assignment on unsupported types" m
+      case vGet ident m of
+        Just (t, _) -> case (newValue, t) of
+          (ValStr _ _, Str _) -> return (vReplace ident newValue m)
+          (ValInt _ _, Int _) -> return (vReplace ident newValue m)
+          (ValBool _ _, Bool _) -> return (vReplace ident newValue m)
+          _ -> do
+            let m1 = addError "assignment on unsupported types" m
+            return m1
+        Nothing -> do
+          let m1 = addError "assignment without prior declaration" m
           return m1
     Left _ -> return m
 transStmt (Incr _ ident) m = do
