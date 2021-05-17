@@ -55,21 +55,20 @@ blockScope m = case (except m, retVal m) of
     retVal = Nothing
   }
 
-setLocal :: (Map String (Type a, Int)) -> MemoryState a -> MemoryState a
-setLocal local m = MemoryState {
-  funcs = funcs m,
-  vIdent = vIdent m,
-  vGlobal = local,
-  vStore = vStore m,
-  ans = ans m,
-  except = except m,
-  retVal = retVal m
-}
-
 builtins :: Map String (Maybe (TopDef a))
 builtins = empty
  |> insert "fail" Nothing
  |> insert "printString" Nothing
+
+
+declareArgs :: [Arg a] -> MemoryState a -> IO (MemoryState a)
+declareArgs [] m = do
+  return m
+declareArgs (h : t) m = do
+  m <- declareArgs t m
+  case h of
+    VArg _ t (Ident ident) -> vDeclare ident t m
+    RArg _ t (Ident ident) -> vDeclare ident t m
 
 emptyState :: a -> MemoryState a
 emptyState a = MemoryState {
@@ -97,18 +96,6 @@ fromScope inner outer = MemoryState {
   retVal = retVal inner
 }
 
-functionScope :: MemoryState a -> MemoryState a
-functionScope m = case except m of
-  Right "ok" -> MemoryState {
-    funcs = funcs m,
-    vIdent = empty,
-    vGlobal = empty,
-    vStore = empty,
-    ans = Nothing,
-    except = Right "ok",
-    retVal = Nothing
-  }
-
 getFreeCell :: MemoryState a -> Int
 getFreeCell m = size (vStore m)
 
@@ -117,11 +104,37 @@ getFunction ident m = case m |> funcs |> Data.Map.lookup ident of
     Just (Just v) -> Just v
     Nothing -> Nothing
 
+storeValues :: [Arg a] -> [Expr a] -> MemoryState a -> MemoryState a -> IO (MemoryState a)
+storeValues [] [] env dst = do
+  return dst
+storeValues (lh : lt) (rh : rt) env dst = do
+  dst <- storeValues lt rt env dst
+  case except dst of
+    Right "ok" -> case lh of
+      RArg _ tp (Ident ident) -> do
+        dst <- vDeclare ident tp env
+        return dst
+      VArg _ tp (Ident ident) -> do
+        dst <- vDeclare ident tp env
+        return dst
+    Left _ -> return dst
+
 typeOf :: MemoryValue a -> Type a
 typeOf (ValStr a _) = Str a
 typeOf (ValInt a _) = Int a
 typeOf (ValBool a _) = Bool a
 typeOf (ValVoid a) = Void a
+
+updateRefArgs :: [Arg a] -> MemoryState a -> MemoryState a -> IO (MemoryState a)
+updateRefArgs [] callResult m = do
+  return m
+updateRefArgs (h : t) callResult m = case h of
+  VArg _ _ _ -> updateRefArgs t callResult m
+  RArg _ _ (Ident ident) -> case vRead ident callResult of
+    Just v -> do
+      m <- vAssign ident v m
+      m <- updateRefArgs t callResult m
+      return m
 
 vAssign :: String -> MemoryValue a -> MemoryState a -> IO (MemoryState a)
 vAssign ident v m = case m |> vIdent |> Data.Map.lookup ident of
@@ -211,6 +224,21 @@ vReplace ident v m = case vGet ident m of
     except = except m,
     retVal = retVal m 
   }
+
+vReplaceTyped :: String -> MemoryValue a -> MemoryState a -> IO (MemoryState a)
+vReplaceTyped ident newValue m = case vGet ident m of
+  Just (t, _) -> case (t, newValue) of
+    (Str _, ValStr _ _) -> do
+      return (vReplace ident newValue m)
+    (Int _, ValInt _ _) -> do
+      let ans = vReplace ident newValue m
+      return ans
+    (Bool _, ValBool _ _) -> do
+      let ans = vReplace ident newValue m
+      return ans
+    _ -> do
+      let ans = addError "assignment on unsupported types" m
+      return ans
 
 -- get the held value
 vUnhold :: MemoryState a -> MemoryValue a

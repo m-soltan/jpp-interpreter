@@ -11,14 +11,85 @@ transTopDef :: Src.Parsing.AbsLatte.TopDef a -> MemoryState a -> IO Result
 transTopDef (FnDef _ type_ ident args block) m = do
   return (Left "not implemented")
 
-callFunc :: Src.Parsing.AbsLatte.TopDef a -> MemoryState a -> IO (MemoryState a)
-callFunc f m = case f of
-  FnDef _ t (Ident k) args block -> do
-    let m1 = vDeclare
-    callResult <- transBlock block (functionScope m)
+functionScope :: [Arg a] -> MemoryState a -> IO (MemoryState a)
+functionScope argDecls m = case except m of
+  Right "ok" -> declareArgs argDecls m
+
+storeSingle :: Arg a -> Expr a -> MemoryState a -> MemoryState a -> IO (MemoryState a)
+storeSingle arg e m fScope = do
+  m <- transExpr e m
+  case except m of
+    Right "ok" -> do
+      let newValue = vUnhold m
+      case arg of
+        RArg _ t (Ident ident) -> case (newValue, t) of
+          (ValStr _ _, Str _) -> return (vReplace ident newValue fScope)
+          (ValInt _ _, Int _) -> return (vReplace ident newValue fScope)
+          (ValBool _ _, Bool _) -> return (vReplace ident newValue fScope)
+          _ -> do
+            let m1 = addError "assignment on unsupported types" m
+            return m1
+        VArg _ t (Ident ident) -> case (newValue, t) of
+          (ValStr _ _, Str _) -> return (vReplace ident newValue fScope)
+          (ValInt _ _, Int _) -> return (vReplace ident newValue fScope)
+          (ValBool _ _, Bool _) -> return (vReplace ident newValue fScope)
+          _ -> do
+            let m1 = addError "assignment on unsupported types" m
+            return m1
+    Left _ -> return m
+
+addArgumentValues :: [Arg a] -> [Expr a] -> MemoryState a -> IO (MemoryState a)
+addArgumentValues [] [] m = do
+  return m
+addArgumentValues (lh : lt) (rh : rt) m = do
+  m <- transExpr rh m
+  case except m of
+    Right "ok" -> case lh of
+      RArg _ t (Ident ident) -> do
+        let newIdent = "0" ++ ident
+        let newValue = vUnhold m
+        m <- vInitialize newIdent newValue m
+        m <- addArgumentValues lt rt m
+        return m
+      VArg _ t (Ident ident) -> do
+        let newIdent = "0" ++ ident
+        let newValue = vUnhold m
+        m <- vInitialize newIdent newValue m
+        m <- addArgumentValues lt rt m
+        return m
+
+copyArgsToScope :: [Arg a] -> MemoryState a -> MemoryState a -> IO (MemoryState a)
+copyArgsToScope [] src dst = do
+  return dst
+copyArgsToScope (h : t) src dst = case h of
+  RArg _ _ (Ident ident) -> do
+    let newIdent = "0" ++ ident
+    let newValue = vRead newIdent src
+    case vRead newIdent src of
+      Just v -> do
+      dst <- vReplaceTyped ident v dst
+      dst <- copyArgsToScope t src dst
+      return dst
+  VArg _ _ (Ident ident) -> do
+    let newIdent = "0" ++ ident
+    let newValue = vRead newIdent src
+    case vRead newIdent src of
+      Just v -> do
+      dst <- vReplaceTyped ident v dst
+      dst <- copyArgsToScope t src dst
+      return dst
+
+callFunc :: Src.Parsing.AbsLatte.TopDef a -> [Expr a] -> MemoryState a -> IO (MemoryState a)
+callFunc f argExprs m = case f of
+  FnDef _ t (Ident k) argDecls block -> do
+    fScope <- functionScope argDecls m
+    m <- addArgumentValues argDecls argExprs m
+    fScope <- copyArgsToScope argDecls m fScope
+    callResult <- transBlock block fScope
     case except callResult of
       Right "ok" -> case ans callResult of
         Just v -> do
+          m <- updateRefArgs argDecls callResult m
           m <- vHold v m
           return m
         Nothing -> do
@@ -102,7 +173,7 @@ transStmt (Incr _ ident) m = do
           let m1 = addError "attempt to increment a non-integer" m
           return m1
         Nothing -> do
-          let m1 = addError "increment on an undeclared identifier" m
+          let m1 = addError "increment on an undefined identifier" m
           return m1
 transStmt (Decr _ ident) m = do
   case ident of
@@ -117,7 +188,7 @@ transStmt (Decr _ ident) m = do
           let m1 = addError "attempt to decrement a non-integer" m
           return m1
         Nothing -> do
-          let m1 = addError "decrement on an undeclared identifier" m
+          let m1 = addError "decrement on an undefined identifier" m
           return m1
 transStmt (Ret _ e) m = do
   m <- transExpr e m
@@ -208,7 +279,8 @@ transExpr (EApp _ (Ident ident) l) m = case ident of
   _ -> do
     let r = getFunction ident m
     case r of
-      Just f -> callFunc f m
+      Just f -> do
+        callFunc f l m
       Nothing -> do
         let m1 = addError "call to undefined function" m
         return m1
@@ -277,7 +349,7 @@ transExpr (EAdd _ l _ r) m = do
               return m1
         Left _ -> return m
     Left _ -> return m
-transExpr (ERel _ l _ r) m = do
+transExpr (ERel _ l relOp r) m = do
   m <- transExpr l m
   case except m of
     Right "ok" -> do
@@ -288,15 +360,15 @@ transExpr (ERel _ l _ r) m = do
           let right = vUnhold m
           case (left, right) of
             (ValBool a lb, ValBool _ rb) -> do
-              let newValue = ValBool a (lb == rb)
+              let newValue = ValBool a ((transRelOp relOp) lb rb)
               m <- vHold newValue m
               return m
             (ValInt a li, ValInt _ ri) -> do
-              let newValue = ValBool a (li == ri)
+              let newValue = ValBool a ((transRelOp relOp) li ri)
               m <- vHold newValue m
               return m
             (ValStr a ls, ValStr _ rs) -> do
-              let newValue = ValBool a (ls == rs)
+              let newValue = ValBool a ((transRelOp relOp) ls rs)
               m <- vHold newValue m
               return m
             (ValBool a _, ValInt _ _) -> do
@@ -345,3 +417,11 @@ transExpr (EOr _ l r) m = do
               return m1
         Left _ -> return m
     Left _ -> return m
+
+transRelOp :: (Eq b, Ord b) => RelOp a -> b -> b -> Bool
+transRelOp (LTH _) = (<)
+transRelOp (LE _) = (<=)
+transRelOp (GTH _) = (>)
+transRelOp (GE _) = (>=)
+transRelOp (EQU _) = (==)
+transRelOp (NE _) = (\l r -> not (l == r))
