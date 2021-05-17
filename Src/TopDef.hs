@@ -57,12 +57,18 @@ addArgumentValues (lh : lt) (rh : rt) m = do
         m <- vInitialize newIdent newValue m
         m <- addArgumentValues lt rt m
         return m
+    Left _ -> do
+      return m
 
 delArgumentValues :: [Arg a] -> MemoryState a -> IO (MemoryState a)
 delArgumentValues [] m = do
   return m
 delArgumentValues (h : t) m = case h of
   (VArg _ _ (Ident ident)) -> do
+    m <- delArgumentValues t m
+    let m1 = vDelete ("0" ++ ident) m
+    return m1
+  (RArg _ _ (Ident ident)) -> do
     m <- delArgumentValues t m
     let m1 = vDelete ("0" ++ ident) m
     return m1
@@ -74,19 +80,25 @@ copyArgsToScope (h : t) src dst = case h of
   RArg _ _ (Ident ident) -> do
     let newIdent = "0" ++ ident
     let newValue = vRead newIdent src
-    case vRead newIdent src of
-      Just v -> do
-      dst <- vReplaceTyped ident v dst
-      dst <- copyArgsToScope t src dst
-      return dst
+    case except src of
+      Right "ok" -> case vRead newIdent src of
+        Just v -> do
+        dst <- vReplaceTyped ident v dst
+        dst <- copyArgsToScope t src dst
+        return dst
+      Left _ -> do
+        return src
   VArg _ _ (Ident ident) -> do
     let newIdent = "0" ++ ident
     let newValue = vRead newIdent src
-    case vRead newIdent src of
-      Just v -> do
-      dst <- vReplaceTyped ident v dst
-      dst <- copyArgsToScope t src dst
-      return dst
+    case except src of
+      Right "ok" -> case vRead newIdent src of
+        Just v -> do
+        dst <- vReplaceTyped ident v dst
+        dst <- copyArgsToScope t src dst
+        return dst
+      Left _ -> do
+        return src
 
 callFunc :: Src.Parsing.AbsLatte.TopDef a -> [Expr a] -> MemoryState a -> IO (MemoryState a)
 callFunc f argExprs m = case f of
@@ -328,7 +340,8 @@ transExpr (EApp a (Ident ident) l) m = case ident of
         return m
       _ -> do
         let m1 = addError "wrong number of arguments in call to scanString()" m
-        return m1  _ -> do
+        return m1
+  _ -> do
     let r = getFunction ident m
     case r of
       Just f -> do
@@ -373,11 +386,10 @@ transExpr (EMul _ l op r) m = do
         Right "ok" -> do
           let right = vUnhold m
           case (left, right) of
-            (ValInt a li, ValInt _ ri) -> do
-              case (op, ri) of
-                (div, 0) -> do
-                  let m1 = addError "division by zero" m
-                  return m1
+            (ValInt a li, ValInt _ ri) -> case (op, ri) of
+              (div, 0) -> do
+                let m1 = addError "division by zero" m
+                return m1
               _ -> do
                 let newValue = ValInt a ((transMulOp op) li ri)
                 m <- vHold newValue m

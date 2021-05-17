@@ -17,6 +17,7 @@ addError err m = case (except m, retVal m) of
     except = Left err,
     retVal = retVal m
   }
+  _ -> m
 
 addFunction :: (TopDef a) -> MemoryState a -> MemoryState a
 addFunction fun m = case fun of
@@ -54,6 +55,7 @@ blockScope m = case (except m, retVal m) of
     except = Right "ok",
     retVal = Nothing
   }
+  (_, _) -> m
 
 builtins :: Map String (Maybe (TopDef a))
 builtins = empty
