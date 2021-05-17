@@ -1,0 +1,6 @@
+int main () {
+  if (2 % 2 == 2 + 2 - 2 * 2) {
+    printString("ok");
+    return 0;
+  }
+}

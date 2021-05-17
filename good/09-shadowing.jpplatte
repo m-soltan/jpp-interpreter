@@ -1,0 +1,35 @@
+int main() {
+  if (a() == 5) {
+    if (b() == 4)
+      return 0;
+  }
+  fail("1");
+}
+
+// we modify the x declared in block, so outer x should be 5
+int a() {
+  int x = 5;
+  if (x == 4)
+    fail("b1");
+  {
+    int x;
+    x = 4;
+    if (x == 5)
+      fail("b2");
+  }
+  return x;
+}
+
+// here we skip the declaration and modify the orginal x
+int b() {
+  int x = 5;
+  if (x == 4)
+    fail("a1");
+  {
+//  int x;
+    x = 4;
+    if (x == 5)
+      fail("a2");
+  }
+  return x;
+}

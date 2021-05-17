@@ -1,0 +1,19 @@
+int main () {
+  return a();
+}
+
+int a () {
+  printString(b());
+  return 0;
+}
+
+string b () {
+  if (c())
+    fail("b1");
+  return "result of b";
+}
+
+boolean c () {
+  printString("c called");
+  return false;
+}

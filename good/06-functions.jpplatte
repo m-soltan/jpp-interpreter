@@ -1,0 +1,16 @@
+int a() {
+  int y = 6;
+  y = y + b(y);
+  printInt(y);
+  return 0;
+}
+
+int main() {
+  int x = b(0);
+  return b(a());
+}
+
+int b(int k) {
+  printInt(k);
+  return k;
+}

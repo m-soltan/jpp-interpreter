@@ -1,0 +1,10 @@
+int main() {
+  int x;
+  boolean y = false;
+  y = true;
+  if (y) {
+    x = 7;
+  }
+  printInt(x);
+  return 0;
+}

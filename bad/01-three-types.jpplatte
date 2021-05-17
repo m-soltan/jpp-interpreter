@@ -1,0 +1,18 @@
+int main() {
+  int a = 2;
+  string b = "2";
+  boolean c = true;
+  if (c) {
+    while (a > 0) {
+      printString(b);
+      a--;
+    }
+  }
+  d();
+}
+
+int d() {
+  if (2+2) {
+  
+  }
+}

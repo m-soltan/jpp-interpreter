@@ -1,0 +1,5 @@
+int main() {
+  string str = "is a number";
+  printInt(43);
+  printString(str);
+}

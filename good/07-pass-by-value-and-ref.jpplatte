@@ -1,0 +1,35 @@
+int main() {
+  a();
+  int k = 0;
+  c(k);
+  printInt(k);
+  if (k != 1)
+    fail("1");
+  c(k);
+  b(k);
+  if (k != 2)
+    fail("2");
+  return 0;
+}
+
+int a() {
+  int j = 4;
+  int k = b(j);
+  if (j == 4) {
+    if (k == 5)
+      return 0;
+    fail("a1");
+  }
+  fail("a2");
+}
+
+int b(int x) {
+  x = 5;
+  return x;
+}
+
+int c(int ref x) {
+  x++;
+  printInt(x);
+  return x;
+}
