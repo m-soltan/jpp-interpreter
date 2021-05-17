@@ -61,14 +61,20 @@ builtins = empty
  |> insert "printString" Nothing
 
 
-declareArgs :: [Arg a] -> MemoryState a -> IO (MemoryState a)
-declareArgs [] m = do
+declareArgs :: [Expr a] -> [Arg a] -> MemoryState a -> IO (MemoryState a)
+declareArgs [] [] m = do
   return m
-declareArgs (h : t) m = do
-  m <- declareArgs t m
+declareArgs (_ : lt) (h : t) m = do
+  m <- declareArgs lt t m
   case h of
     VArg _ t (Ident ident) -> vDeclare ident t m
     RArg _ t (Ident ident) -> vDeclare ident t m
+declareArgs (_ : _) [] m = do
+  let m1 = addError "too many arguments in function call" m
+  return m1
+declareArgs [] (_ : _) m = do
+  let m1 = addError "not enough arguments in function call" m
+  return m1
 
 emptyState :: a -> MemoryState a
 emptyState a = MemoryState {
@@ -132,7 +138,7 @@ updateRefArgs (h : t) callResult m = case h of
   VArg _ _ _ -> updateRefArgs t callResult m
   RArg _ _ (Ident ident) -> case vRead ident callResult of
     Just v -> do
-      m <- vAssign ident v m
+      m <- vAssign ident v callResult
       m <- updateRefArgs t callResult m
       return m
 

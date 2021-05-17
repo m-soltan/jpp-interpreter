@@ -11,9 +11,9 @@ transTopDef :: Src.Parsing.AbsLatte.TopDef a -> MemoryState a -> IO Result
 transTopDef (FnDef _ type_ ident args block) m = do
   return (Left "not implemented")
 
-functionScope :: [Arg a] -> MemoryState a -> IO (MemoryState a)
-functionScope argDecls m = case except m of
-  Right "ok" -> declareArgs argDecls m
+functionScope :: [Expr a] -> [Arg a] -> MemoryState a -> IO (MemoryState a)
+functionScope argExprs argDecls m = case except m of
+  Right "ok" -> declareArgs argExprs argDecls m
 
 storeSingle :: Arg a -> Expr a -> MemoryState a -> MemoryState a -> IO (MemoryState a)
 storeSingle arg e m fScope = do
@@ -82,7 +82,7 @@ copyArgsToScope (h : t) src dst = case h of
 callFunc :: Src.Parsing.AbsLatte.TopDef a -> [Expr a] -> MemoryState a -> IO (MemoryState a)
 callFunc f argExprs m = case f of
   FnDef _ t (Ident k) argDecls block -> do
-    fScope <- functionScope argDecls m
+    fScope <- functionScope argExprs argDecls m
     m <- addArgumentValues argDecls argExprs m
     fScope <- copyArgsToScope argDecls m fScope
     callResult <- transBlock block fScope
