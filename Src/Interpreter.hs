@@ -1,8 +1,9 @@
 module Main where
 
-import Control.Monad      ( when )
+import Control.Monad ( when )
 import System.Environment ( getArgs, getProgName )
-import System.Exit        ( exitFailure, exitSuccess )
+import System.IO (hPutStrLn, stderr)
+import System.Exit ( exitFailure, exitSuccess )
 
 import Src.Parsing.AbsLatte
 import Src.Parsing.LexLatte   ( Token )
@@ -31,11 +32,10 @@ run s = case pProgram ts of
           dbgPrint s
           exitSuccess
         Left err -> do
-          dbgPrint ("\nRuntime error: \"" ++ err ++ "\"")
+          hPutStrLn stderr ("\nRuntime error: \"" ++ err ++ "\"")
           exitFailure
     Left s -> do
-      dbgPrint "\nParse Failed...\n"
-
+      hPutStrLn stderr "\nParse Failed...\n"
       exitFailure
   where
   ts = myLexer s
