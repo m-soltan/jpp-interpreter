@@ -133,16 +133,20 @@ typeOf (ValInt a _) = Int a
 typeOf (ValBool a _) = Bool a
 typeOf (ValVoid a) = Void a
 
-updateRefArgs :: [Arg a] -> MemoryState a -> MemoryState a -> IO (MemoryState a)
-updateRefArgs [] callResult m = do
+updateRefArgs :: [Expr a] -> [Arg a] -> MemoryState a -> MemoryState a -> IO (MemoryState a)
+updateRefArgs [] [] callResult m = do
   return m
-updateRefArgs (h : t) callResult m = case h of
-  VArg _ _ _ -> updateRefArgs t callResult m
+updateRefArgs (lh : lt) (rh : rt) callResult m = case rh of
+  VArg _ _ _ -> updateRefArgs lt rt callResult m
   RArg _ _ (Ident ident) -> case vRead ident callResult of
-    Just v -> do
-      m <- vAssign ident v callResult
-      m <- updateRefArgs t callResult m
-      return m
+    Just v -> case lh of
+      EVar _ (Ident eIdent) -> do
+        m <- vAssign eIdent v m
+        m <- updateRefArgs lt rt callResult m
+        return m
+      _ -> do
+        let m1 = addError "reference target is not a variable" m
+        return m1
 
 vAssign :: String -> MemoryValue a -> MemoryState a -> IO (MemoryState a)
 vAssign ident v m = case m |> vIdent |> Data.Map.lookup ident of

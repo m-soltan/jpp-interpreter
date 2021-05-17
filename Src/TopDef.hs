@@ -113,7 +113,7 @@ callFunc f argExprs m = case f of
         case except callResult of
           Right "ok" -> case ans callResult of
             Just v -> do
-              m <- updateRefArgs argDecls callResult m
+              m <- updateRefArgs argExprs argDecls callResult m
               m <- vHold v m
               return m
             Nothing -> do
