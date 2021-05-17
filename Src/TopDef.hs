@@ -326,7 +326,9 @@ transExpr (EApp a (Ident ident) l) m = case ident of
         line <- getLine
         m <- vHold (ValStr a line) m
         return m
-  _ -> do
+      _ -> do
+        let m1 = addError "wrong number of arguments in call to scanString()" m
+        return m1  _ -> do
     let r = getFunction ident m
     case r of
       Just f -> do
@@ -372,9 +374,14 @@ transExpr (EMul _ l op r) m = do
           let right = vUnhold m
           case (left, right) of
             (ValInt a li, ValInt _ ri) -> do
-              let newValue = ValInt a ((transMulOp op) li ri)
-              m <- vHold newValue m
-              return m
+              case (op, ri) of
+                (div, 0) -> do
+                  let m1 = addError "division by zero" m
+                  return m1
+              _ -> do
+                let newValue = ValInt a ((transMulOp op) li ri)
+                m <- vHold newValue m
+                return m
             _ -> do
               let m1 = addError "invalid type passed to arithmetic multiplication" m
               return m1
