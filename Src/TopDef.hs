@@ -58,6 +58,15 @@ addArgumentValues (lh : lt) (rh : rt) m = do
         m <- addArgumentValues lt rt m
         return m
 
+delArgumentValues :: [Arg a] -> MemoryState a -> IO (MemoryState a)
+delArgumentValues [] m = do
+  return m
+delArgumentValues (h : t) m = case h of
+  (VArg _ _ (Ident ident)) -> do
+    m <- delArgumentValues t m
+    let m1 = vDelete ("0" ++ ident) m
+    return m1
+
 copyArgsToScope :: [Arg a] -> MemoryState a -> MemoryState a -> IO (MemoryState a)
 copyArgsToScope [] src dst = do
   return dst
@@ -85,18 +94,21 @@ callFunc f argExprs m = case f of
     fScope <- functionScope argExprs argDecls m
     m <- addArgumentValues argDecls argExprs m
     fScope <- copyArgsToScope argDecls m fScope
-    callResult <- transBlock block fScope
-    case except callResult of
-      Right "ok" -> case ans callResult of
-        Just v -> do
-          m <- updateRefArgs argDecls callResult m
-          m <- vHold v m
-          return m
-        Nothing -> do
-          let m1 = addError "function ended with no return statement" m
-          return m1
-      Left err -> do
-        return (addError err m)
+    m <- delArgumentValues argDecls m
+    case k of
+      _ -> do
+        callResult <- transBlock block fScope
+        case except callResult of
+          Right "ok" -> case ans callResult of
+            Just v -> do
+              m <- updateRefArgs argDecls callResult m
+              m <- vHold v m
+              return m
+            Nothing -> do
+              let m1 = addError "function ended with no return statement" m
+              return m1
+          Left err -> do
+            return (addError err m)
 
 blockAux :: [Stmt a] -> MemoryState a -> IO (MemoryState a)
 blockAux [] m = do
@@ -268,14 +280,46 @@ transExpr (ELitFalse a) m = do
 transExpr (EApp _ (Ident ident) l) m = case ident of
   "fail" -> do
     case l of
-      [EString _ str] -> do
-        let m1 = addError str m
+      [expr] -> do
+        m <- transExpr expr m
+        case vUnhold m of
+          ValStr _ str -> do
+            let m1 = addError str m
+            return m1
+          _ -> do
+            let m1 = addError "invalid argument type" m
+            return m1
+      _ -> do
+        let m1 = addError "wrong number of arguments in call to fail()" m
+        return m1
+  "printInt" -> do
+    case l of
+      [expr] -> do
+        m <- transExpr expr m
+        case vUnhold m of
+          ValInt _ i -> do
+            putStrLn (show i)
+            return m
+          _ -> do
+            let m1 = addError "invalid argument type" m
+            return m1
+      _ -> do
+        let m1 = addError "wrong number of arguments in call to fail()" m
         return m1
   "printString" -> do
     case l of
-      [EString _ str] -> do
-        putStrLn str
-        return m
+      [expr] -> do
+        m <- transExpr expr m
+        case vUnhold m of
+          ValStr _ str -> do
+            putStrLn str
+            return m
+          _ -> do
+            let m1 = addError "invalid argument type" m
+            return m1
+      _ -> do
+        let m1 = addError "wrong number of arguments in call to fail()" m
+        return m1
   _ -> do
     let r = getFunction ident m
     case r of
@@ -311,7 +355,7 @@ transExpr (Not _ e) m = do
         let m1 = addError "invalid type passed to logical negation" m
         return m1
     Left err -> return m
-transExpr (EMul _ l _ r) m = do
+transExpr (EMul _ l op r) m = do
   m <- transExpr l m
   case except m of
     Right "ok" -> do
@@ -322,7 +366,7 @@ transExpr (EMul _ l _ r) m = do
           let right = vUnhold m
           case (left, right) of
             (ValInt a li, ValInt _ ri) -> do
-              let newValue = ValInt a (li * ri)
+              let newValue = ValInt a ((transMulOp op) li ri)
               m <- vHold newValue m
               return m
             _ -> do
@@ -330,7 +374,7 @@ transExpr (EMul _ l _ r) m = do
               return m1
         Left _ -> return m
     Left _ -> return m
-transExpr (EAdd _ l _ r) m = do
+transExpr (EAdd _ l op r) m = do
   m <- transExpr l m
   case except m of
     Right "ok" -> do
@@ -341,7 +385,7 @@ transExpr (EAdd _ l _ r) m = do
           let right = vUnhold m
           case (left, right) of
             (ValInt a li, ValInt _ ri) -> do
-              let newValue = ValInt a (li + ri)
+              let newValue = ValInt a ((transAddOp op) li ri)
               m <- vHold newValue m
               return m
             _ -> do
@@ -417,6 +461,15 @@ transExpr (EOr _ l r) m = do
               return m1
         Left _ -> return m
     Left _ -> return m
+
+transAddOp :: (Integral b) => AddOp a -> b -> b -> b
+transAddOp (Plus _) = (+)
+transAddOp (Minus _) = (-)
+
+transMulOp :: (Integral b) => MulOp a -> b -> b -> b
+transMulOp (Times _) = (*)
+transMulOp (Div _) = div
+transMulOp (Mod _) = mod
 
 transRelOp :: (Eq b, Ord b) => RelOp a -> b -> b -> Bool
 transRelOp (LTH _) = (<)

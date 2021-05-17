@@ -14,7 +14,6 @@ import qualified Src.Program
 
 type ParseFun a = [Token] -> Either String a
 
-main :: IO ()
 main = do
   args <- getArgs
   case args of
