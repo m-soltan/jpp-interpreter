@@ -277,7 +277,7 @@ transExpr (ELitTrue a) m = do
 transExpr (ELitFalse a) m = do
   m <- vHold (ValBool a False) m
   return m
-transExpr (EApp _ (Ident ident) l) m = case ident of
+transExpr (EApp a (Ident ident) l) m = case ident of
   "fail" -> do
     case l of
       [expr] -> do
@@ -304,7 +304,7 @@ transExpr (EApp _ (Ident ident) l) m = case ident of
             let m1 = addError "invalid argument type" m
             return m1
       _ -> do
-        let m1 = addError "wrong number of arguments in call to fail()" m
+        let m1 = addError "wrong number of arguments in call to printInt()" m
         return m1
   "printString" -> do
     case l of
@@ -318,8 +318,14 @@ transExpr (EApp _ (Ident ident) l) m = case ident of
             let m1 = addError "invalid argument type" m
             return m1
       _ -> do
-        let m1 = addError "wrong number of arguments in call to fail()" m
+        let m1 = addError "wrong number of arguments in call to printString()" m
         return m1
+  "scanString" -> do
+    case l of
+      [] -> do
+        line <- getLine
+        m <- vHold (ValStr a line) m
+        return m
   _ -> do
     let r = getFunction ident m
     case r of
